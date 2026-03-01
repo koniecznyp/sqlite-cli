@@ -1,6 +1,6 @@
-use std::io::{ Read };
+use std::{ io::Read, fs::File };
 
-use anyhow::Context;
+use crate::page_reader::PageReader;
 
 pub const HEADER_SIZE: usize = 100;
 pub const HEADER_PAGE_SIZE_OFFSET: usize = 16;
@@ -10,23 +10,30 @@ pub struct DatabaseHeader {
 }
 
 pub struct Database {
-    pub header: DatabaseHeader
+    pub table_count: u16
 }
 
 impl Database {
     pub fn load_file(filename: impl AsRef<std::path::Path>) -> anyhow::Result<Database> {
-        let mut db_file = std::fs::File::open(filename.as_ref())
-            .context("open database file")?;
+        let mut db_file = File::open(&filename)?;
 
         let mut bytes = [0; HEADER_SIZE];
-        db_file .read_exact(&mut bytes)
-            .context("read db header")?;
+        db_file.read_exact(&mut bytes)?;
 
-        let header = parse_header(&bytes)
-            .context("parse db header")?;
+        let header = parse_header(&bytes)?;
 
-        Ok(Database { header })
+        let page_reader = PageReader::new(header, db_file);
+
+        let table_count = get_table_count(page_reader)?;
+
+        Ok(Database { table_count })
     }
+}
+
+fn get_table_count(page_reader: crate::page_reader::PageReader) -> anyhow::Result<u16> {
+    let page= page_reader.read_page(1)?;
+
+    Ok(page.get_cell_count()?)
 }
 
 fn parse_header(bytes: &[u8]) -> anyhow::Result<DatabaseHeader> {
