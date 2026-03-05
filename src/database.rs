@@ -33,6 +33,8 @@ impl Database {
 fn get_table_count(page_reader: crate::page_reader::PageReader) -> anyhow::Result<u16> {
     let page= page_reader.read_page(1)?;
 
+    let tables = page.get_table_names();
+
     Ok(page.get_cell_count()?)
 }
 
