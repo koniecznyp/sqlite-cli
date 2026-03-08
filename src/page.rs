@@ -1,7 +1,7 @@
-use anyhow::Ok;
+use anyhow:: { Ok };
 
 pub struct PageHeader {
-    pub size: u8,
+    pub size: usize,
     pub cell_count: u16
 }
 

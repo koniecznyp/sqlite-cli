@@ -1,6 +1,6 @@
 use std::{ io::Read, fs::File };
 
-use crate::page_reader::PageReader;
+use crate::{page_reader::{ PageReader }};
 
 pub const HEADER_SIZE: usize = 100;
 pub const HEADER_PAGE_SIZE_OFFSET: usize = 16;
@@ -32,9 +32,6 @@ impl Database {
 
 fn get_table_count(page_reader: crate::page_reader::PageReader) -> anyhow::Result<u16> {
     let page= page_reader.read_page(1)?;
-
-    let tables = page.get_table_names();
-
     Ok(page.get_cell_count()?)
 }
 

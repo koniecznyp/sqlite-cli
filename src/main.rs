@@ -6,6 +6,7 @@ use crate::database::Database;
 mod database;
 mod page_reader;
 mod page;
+mod scanner;
 
 fn main() -> anyhow::Result<()> {
     let database = database::Database::load_file("test.db")?;
