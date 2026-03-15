@@ -1,5 +1,3 @@
-use anyhow:: { Ok };
-
 pub struct PageHeader {
     pub size: usize,
     pub cell_count: u16
@@ -10,18 +8,19 @@ pub struct Page {
     pub cells: Vec<Cell>
 }
 
+impl Page {
+    pub fn get(&self, n: usize) -> Option<&Cell> {
+        self.cells.get(n)
+    }
+}
+
 pub struct Cell {
-    pub pointer: u16
+    //pub pointer: u16,
+    pub payload: Vec<u8>
 }
 
 impl Page {
-    pub fn get_cell_count(&self) -> anyhow::Result<u16> {
-        Ok(self.header.cell_count)
-    }
-
-    pub fn get_table_names(&self) {
-        for i in self.cells.iter() {
-            println!("pointer {}", i.pointer.to_string());
-        }
+    pub fn get_cell_count(&self) -> usize {
+        self.header.cell_count as usize
     }
 }

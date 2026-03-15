@@ -34,8 +34,9 @@ fn cli(mut database: Database) -> anyhow::Result<()> {
 }
 
 fn list_tables(database: &mut Database) -> anyhow::Result<()> {
-    println!("table count: {}", &database.table_count);
-    // todo - list table names
+    for table in &database.tables {
+        println!("{}", &table.name);
+    }
     Ok(())
 }
 

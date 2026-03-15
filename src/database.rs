@@ -1,16 +1,39 @@
 use std::{ io::Read, fs::File };
 
-use crate::{page_reader::{ PageReader }};
+use anyhow::Context;
+
+use crate::{
+    page_reader::PageReader,
+    scanner::{ Record, RecordValue, Scanner }};
 
 pub const HEADER_SIZE: usize = 100;
 pub const HEADER_PAGE_SIZE_OFFSET: usize = 16;
 
+#[derive(Debug, Copy, Clone)]
 pub struct DatabaseHeader {
     pub page_size: u16
 }
 
 pub struct Database {
-    pub table_count: u16
+    page_reader: PageReader,
+    pub tables: Vec<Table>
+}
+
+pub struct Table {
+    pub name: String
+}
+
+impl Table {
+    pub fn from_record(record: &Record) -> anyhow::Result<Table> {
+        let tbl_name = record.field(3)?.context("tbl_name")?;
+
+        let name = match tbl_name {
+            RecordValue::String(cow) => cow.as_ref().to_string(),
+            _ => panic!("string expected")
+        };
+
+        Ok(Table { name })
+    }
 }
 
 impl Database {
@@ -24,15 +47,21 @@ impl Database {
 
         let page_reader = PageReader::new(header, db_file);
 
-        let table_count = get_table_count(page_reader)?;
+        let tables = get_tables(page_reader.clone())?;
 
-        Ok(Database { table_count })
+        Ok(Database { page_reader, tables })
     }
 }
 
-fn get_table_count(page_reader: crate::page_reader::PageReader) -> anyhow::Result<u16> {
-    let page= page_reader.read_page(1)?;
-    Ok(page.get_cell_count()?)
+fn get_tables(page_reader: PageReader) -> anyhow::Result<Vec<Table>> {
+    let scanner = Scanner::new(page_reader, 1);
+
+    let mut tables = vec!();
+    for record in scanner.scan()? {
+        tables.push(Table::from_record(&record)?);
+    }
+    
+    Ok(tables)
 }
 
 fn parse_header(bytes: &[u8]) -> anyhow::Result<DatabaseHeader> {
