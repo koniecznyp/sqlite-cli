@@ -1,5 +1,4 @@
 use anyhow::{ Ok };
-
 use std::{
     io:: { Read, Seek, SeekFrom },
     sync:: { Arc, Mutex }};
@@ -37,11 +36,11 @@ impl<I: Seek + Read> PageReader<I> {
         let offset = if page_num == 1 { database::HEADER_SIZE } else { 0 };
         let content_offset= &data[offset..];
         
-        let header = self.parse_page_header(&content_offset)?; 
-        let cell_pointers = self.get_cell_pointers(
+        let header = Self::parse_page_header(&content_offset)?; 
+        let cell_pointers = Self::get_cell_pointers(
             &data[offset + header.size..],
             header.cell_count)?;
-        let cells = self.get_cells(&data, cell_pointers)?;
+        let cells = Self::get_cells(&data, cell_pointers)?;
 
         Ok(Page { header, cells })
     }
@@ -60,7 +59,7 @@ impl<I: Seek + Read> PageReader<I> {
         Ok(buffer)
     }
 
-    fn parse_page_header(&self, buffer: &[u8]) -> anyhow::Result<PageHeader> {
+    fn parse_page_header(buffer: &[u8]) -> anyhow::Result<PageHeader> {
         let size = 8;
         let cell_count = u16::from_be_bytes(
             buffer[PAGE_CELLS_COUNT_OFFSET..PAGE_CELLS_COUNT_OFFSET + 2]
@@ -70,7 +69,7 @@ impl<I: Seek + Read> PageReader<I> {
         Ok(PageHeader { size, cell_count })
     }
 
-    fn get_cell_pointers(&self, buffer: &[u8], cell_count: u16) -> anyhow::Result<Vec<u16>> {
+    fn get_cell_pointers(buffer: &[u8], cell_count: u16) -> anyhow::Result<Vec<u16>> {
         let mut cell_pointers = Vec::new();
         for i in 0..cell_count {
             let offset = (i * 2) as usize;
@@ -82,7 +81,7 @@ impl<I: Seek + Read> PageReader<I> {
         Ok(cell_pointers)
     }
 
-    fn get_cells(&self, data: &[u8], cell_pointers: Vec<u16>) -> anyhow::Result<Vec<Cell>> {
+    fn get_cells(data: &[u8], cell_pointers: Vec<u16>) -> anyhow::Result<Vec<Cell>> {
         let mut cells = vec!();
         for cell_pointer in cell_pointers {
             let payload_size = read_varint_at(&data, cell_pointer as usize);
