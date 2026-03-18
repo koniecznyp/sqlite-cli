@@ -65,8 +65,8 @@ impl Table {
             .context("tbl_name")?;
 
         let tbl_name_value: String = match tbl_name {
-            RecordValue::String(cow) => cow.as_ref().to_string(),
-            _ => panic!("string expected")
+            RecordValue::String(s) => s,
+            _ => anyhow::bail!("Expected string for table name")
         };
 
         Ok(Table { name: tbl_name_value })

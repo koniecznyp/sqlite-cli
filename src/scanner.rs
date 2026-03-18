@@ -1,7 +1,6 @@
-use anyhow::{ Ok };
+use anyhow::{ Ok, Context };
 
 use crate::page_reader::{ PageReader, read_varint };
-use std::{ borrow::Cow };
 
 pub struct Scanner {
     page_reader: PageReader
@@ -81,10 +80,46 @@ impl Record {
             return Ok(None);
         };
 
-        let value = std::str::from_utf8(
-            &self.payload[record_field.offset..record_field.offset + record_field.size])?;
-
-        Ok(Some(RecordValue::String(value.into())))
+        match record_field.field_type {
+            RecordFieldType::Null => Ok(Some(RecordValue::Null)),
+            RecordFieldType::String(_) => {
+                let s = std::str::from_utf8(
+                    &self.payload[record_field.offset..record_field.offset + record_field.size])?;
+                Ok(Some(RecordValue::String(s.to_string())))
+            }
+            RecordFieldType::Blob(_) => {
+                let blob = self.payload[record_field.offset..record_field.offset + record_field.size].to_vec();
+                Ok(Some(RecordValue::Blob(blob)))
+            }
+            RecordFieldType::I64 => {
+                let bytes = &self.payload[record_field.offset..record_field.offset + record_field.size];
+                let val = i64::from_be_bytes(bytes.try_into().context("Invalid i64 bytes")?);
+                Ok(Some(RecordValue::Int(val)))
+            }
+            RecordFieldType::Float => {
+                let bytes = &self.payload[record_field.offset..record_field.offset + record_field.size];
+                let val = f64::from_be_bytes(bytes.try_into().context("Invalid f64 bytes")?);
+                Ok(Some(RecordValue::Float(val)))
+            }
+            RecordFieldType::I32 => {
+                let bytes = &self.payload[record_field.offset..record_field.offset + record_field.size];
+                let val = i32::from_be_bytes(bytes.try_into().context("Invalid i32 bytes")?);
+                Ok(Some(RecordValue::Int(val as i64)))
+            }
+            RecordFieldType::I16 => {
+                let bytes = &self.payload[record_field.offset..record_field.offset + record_field.size];
+                let val = i16::from_be_bytes(bytes.try_into().context("Invalid i16 bytes")?);
+                Ok(Some(RecordValue::Int(val as i64)))
+            }
+            RecordFieldType::I8 => {
+                let bytes = &self.payload[record_field.offset..record_field.offset + record_field.size];
+                let val = i8::from_be_bytes(bytes.try_into().context("Invalid i8 bytes")?);
+                Ok(Some(RecordValue::Int(val as i64)))
+            }
+            RecordFieldType::Zero => Ok(Some(RecordValue::Int(0))),
+            RecordFieldType::One => Ok(Some(RecordValue::Int(1))),
+            _ => anyhow::bail!("Unsupported field type: {:?}", record_field.field_type),
+        }
     }
 }
 
@@ -98,23 +133,15 @@ pub struct RecordField {
     pub offset: usize
 }
 
-pub enum RecordValue<'p> {
+pub enum RecordValue {
     Null,
-    String(Cow<'p, str>),
-    Blob(Cow<'p, [u8]>),
+    String(String),
+    Blob(Vec<u8>),
     Int(i64),
     Float(f64)
 }
 
-impl<'p> RecordValue<'p> {
-    pub fn as_str(&self) -> Option<&str> {
-        match self {
-            RecordValue::String(cow) => Some(cow.as_ref()),
-            _ => None,
-        }
-    }
-}
-
+#[derive(Debug)]
 pub enum RecordFieldType {
     Null,
     I8,
