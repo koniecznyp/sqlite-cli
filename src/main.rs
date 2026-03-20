@@ -7,6 +7,8 @@ mod database;
 mod page_reader;
 mod page;
 mod scanner;
+mod parser;
+mod tokenizer;
 
 fn main() -> anyhow::Result<()> {
     let database = database::Database::load_file("test.db")?;
@@ -22,7 +24,7 @@ fn cli(mut database: Database) -> anyhow::Result<()> {
         match input_buffer.trim() {
             ".exit" => break,
             ".tables" => list_tables(&mut database)?,
-            _ => { println!("not supported dot-command.") }
+            query => process_query(&mut database, query)?
         }
 
         flush_console();
@@ -33,10 +35,15 @@ fn cli(mut database: Database) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn list_tables(database: &mut Database) -> anyhow::Result<()> {
+fn list_tables(database: &Database) -> anyhow::Result<()> {
     for table in &database.tables {
         println!("{}", &table.name);
     }
+    Ok(())
+}
+
+fn process_query(database: &Database, query: &str) -> anyhow::Result<()> {
+    let statement = parser::parse_sql(query)?;
     Ok(())
 }
 

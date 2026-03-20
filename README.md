@@ -38,7 +38,7 @@ A SQLite database is not a continuous stream of data; it is divided into equal-s
 +-----------------------------------------------------------+
 | Unallocated Space (Free Space)                            |
 |                                                           |
-|             <--- High-water mark --->                     |
+|                      <--- ... --->                        |
 |                                                           |
 +-----------------------------------------------------------+
 | Cell Payload Area (Data & Keys)                           |
@@ -89,3 +89,8 @@ db> .exit
 - `page.rs`: Page parsing and management logic
 - `page_reader.rs`: Low-level page reading utilities
 - `scanner.rs`: Data scanning and record parsing functionality
+
+## Todo
+- fix page header 8/12 bytes (now its hardcoded for simplicity)
+- improve scanner and fetching rows (`scanner::scan()`)
+- parse basic sql query -> select statement
