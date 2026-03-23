@@ -1,10 +1,10 @@
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Token
 {
     Select,
     Star,
     From,
-    Identifier(String)
+    Table(String)
 }
 
 pub fn tokenize(query: &str) -> Vec<Token> {
@@ -15,7 +15,7 @@ pub fn tokenize(query: &str) -> Vec<Token> {
             "select" => tokens.push(Token::Select),
             "*" => tokens.push(Token::Star),
             "from" => tokens.push(Token::From),
-            _ => tokens.push(Token::Identifier(word.to_string()))
+            _ => tokens.push(Token::Table(word.to_string()))
         }
     }
     tokens

@@ -1,7 +1,7 @@
 use std::io::{ Write, stdin, stdout };
 use anyhow::{ Ok };
 
-use crate::database::Database;
+use crate::{database::Database, parser::Statement};
 
 mod database;
 mod page_reader;
@@ -44,6 +44,13 @@ fn list_tables(database: &Database) -> anyhow::Result<()> {
 
 fn process_query(database: &Database, query: &str) -> anyhow::Result<()> {
     let statement = parser::parse_sql(query)?;
+
+    match statement {
+        Statement::Select(select) => {
+            println!("Table: {}", select.from);
+        }
+    }
+    // todo, compile and read data from table
     Ok(())
 }
 
