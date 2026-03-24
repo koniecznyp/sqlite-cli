@@ -9,6 +9,7 @@ use crate::{
 
 pub const PAGE_CELLS_COUNT_OFFSET: usize = 3;
 
+#[derive(Debug)]
 pub struct PageReader<I: Read + Seek = std::fs::File> {
     db_header: DatabaseHeader,
     file: Arc<Mutex<I>>

@@ -1,7 +1,7 @@
 use anyhow::{ Ok, Context };
-
 use crate::page_reader::{ PageReader, read_varint };
 
+#[derive(Debug)]
 pub struct Scanner {
     page_reader: PageReader
 }
@@ -139,6 +139,22 @@ pub enum RecordValue {
     Blob(Vec<u8>),
     Int(i64),
     Float(f64)
+}
+
+impl RecordValue {
+    pub fn as_string(&self) -> Option<String> {
+        match self {
+            Self::String(s) => Some(s.clone()),
+            _ => None
+        }
+    }
+
+    pub fn as_int(&self) -> Option<i64> {
+        match self {
+            Self::Int(i) => Some(*i),
+            _ => None
+        }
+    }
 }
 
 #[derive(Debug)]

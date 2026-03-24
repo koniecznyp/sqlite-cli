@@ -15,7 +15,7 @@ pub struct DatabaseHeader {
 }
 
 pub struct Database {
-    page_reader: PageReader,
+    pub page_reader: PageReader,
     pub tables: Vec<Table>
 }
 
@@ -33,6 +33,10 @@ impl Database {
         let tables = Database::get_tables(page_reader.clone())?;
 
         Ok(Database { page_reader, tables })
+    }
+
+    pub fn get_scanner(&self) -> Scanner {
+        Scanner::new(self.page_reader.clone())
     }
 
     fn get_tables(page_reader: PageReader) -> anyhow::Result<Vec<Table>> {
@@ -55,20 +59,24 @@ impl Database {
 }
 
 pub struct Table {
-    pub name: String
+    pub name: String,
+    pub rootpage: usize
 }
 
 impl Table {
     pub fn from_record(record: &Record) -> anyhow::Result<Table> {
         let tbl_name = record
             .field(2)?
-            .context("tbl_name")?;
+            .context("tbl_name")?
+            .as_string()
+            .context("tbl_name must be a string")?;
 
-        let tbl_name_value: String = match tbl_name {
-            RecordValue::String(s) => s,
-            _ => anyhow::bail!("Expected string for table name")
-        };
+        let rootpage = record
+            .field(3)?
+            .context("rootpage")?
+            .as_int()
+            .context("rootpage must be an integer")? as usize;
 
-        Ok(Table { name: tbl_name_value })
+        Ok(Table { name: tbl_name, rootpage: rootpage })
     }
 }
