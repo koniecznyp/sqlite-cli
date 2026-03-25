@@ -4,7 +4,7 @@ use anyhow::Context;
 
 use crate::{
     page_reader::PageReader,
-    scanner::{ Record, RecordValue, Scanner }};
+    scanner::{ Record, Scanner }};
 
 pub const HEADER_SIZE: usize = 100;
 pub const HEADER_PAGE_SIZE_OFFSET: usize = 16;
@@ -44,7 +44,7 @@ impl Database {
 
         let mut tables = vec!();
         for record in scanner.scan(1)? {
-            tables.push(Table::from_record(&record)?);
+            tables.push(Table::from_record(&record?)?);
         }
         
         Ok(tables)

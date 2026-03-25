@@ -1,5 +1,6 @@
 use anyhow::{ Context, Ok, bail };
 use crate::page_reader::{ PageReader, read_varint };
+use crate::page::Page;
 
 #[derive(Debug)]
 pub struct Scanner {
@@ -13,60 +14,85 @@ impl Scanner {
         }
     }
 
-    pub fn scan(&self, page_num: usize) -> anyhow::Result<Vec<Record>> {
+    pub fn scan(&self, page_num: usize) -> anyhow::Result<RecordIter> {
         let page = self.page_reader.read_page(page_num)?;
-
-        let mut records = vec!();
-        for i in 0..page.get_cell_count() {
-            let cell = match page.get(i) {
-                Some (cell) => cell,
-                _ => { anyhow::bail!("cannot read cell") }
-            };
-            let mut pos = 0;
-
-            let header_size = read_varint(&cell.payload, &mut pos);
-
-            let mut offset = header_size as usize;
-            let mut record_fields = vec!();
-            for _ in 0..header_size - 1 {
-                let varint = read_varint(&cell.payload, &mut pos);
-
-                let (field_type, size) = self.get_field_type(varint)?;
-                record_fields.push(RecordField { field_type, size, offset });
-                offset += size;
-            }
-
-            records.push(Record { 
-                header: RecordHeader { fields: record_fields },
-                payload: cell.payload.clone() });
-        }
-
-        Ok(records)
-    }
-
-    fn get_field_type(&self, serial_type_code:u64) -> anyhow::Result<(RecordFieldType, usize)> {
-        Ok(match serial_type_code {
-            0 => (RecordFieldType::Null, 0),
-            1 => (RecordFieldType::I8, 1),
-            2 => (RecordFieldType::I16, 2),
-            3 => (RecordFieldType::I24, 3),
-            4 => (RecordFieldType::I32, 4),
-            5 => (RecordFieldType::I48, 6),
-            6 => (RecordFieldType::I64, 8),
-            7 => (RecordFieldType::Float, 8),
-            8 => (RecordFieldType::Zero, 0),
-            9 => (RecordFieldType::One, 0),
-            n if n >= 12 && n % 2 == 0 => {
-                let size = ((n - 12) / 2) as usize;
-                (RecordFieldType::Blob(size), size)
-            }
-            n if n >= 13 && n % 2 == 1 => {
-                let size = ((n - 13) / 2) as usize;
-                (RecordFieldType::String(size), size)
-            }
-            n => anyhow::bail!("unsupported field type: {}", n),
+        Ok(RecordIter {
+            page,
+            current_cell: 0,
         })
     }
+}
+
+pub struct RecordIter {
+    page: Page,
+    current_cell: usize,
+}
+
+impl Iterator for RecordIter {
+    type Item = anyhow::Result<Record>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_cell >= self.page.header.cell_count as usize {
+            return None;
+        }
+
+        let cell = match self.page.cells.get(self.current_cell) {
+            Some(cell) => cell,
+            None => {
+                self.current_cell += 1;
+                return Some(Err(anyhow::anyhow!("cannot read cell")));
+            }
+        };
+
+        self.current_cell += 1;
+
+        let result = parse_record(&cell.payload);
+        Some(result)
+    }
+}
+
+fn parse_record(payload: &[u8]) -> anyhow::Result<Record> {
+    let mut pos = 0;
+    let header_size = read_varint(payload, &mut pos) as usize;
+
+    let mut offset = header_size;
+    let mut record_fields = vec!();
+    
+    for _ in 0..header_size - 1 {
+        let type_code = read_varint(payload, &mut pos);
+        let (field_type, size) = get_field_type(type_code)?;
+        record_fields.push(RecordField { field_type, size, offset });
+        offset += size;
+    }
+
+    Ok(Record {
+        header: RecordHeader { fields: record_fields },
+        payload: payload.to_vec(),
+    })
+}
+
+fn get_field_type(serial_type_code:u64) -> anyhow::Result<(RecordFieldType, usize)> {
+    Ok(match serial_type_code {
+        0 => (RecordFieldType::Null, 0),
+        1 => (RecordFieldType::I8, 1),
+        2 => (RecordFieldType::I16, 2),
+        3 => (RecordFieldType::I24, 3),
+        4 => (RecordFieldType::I32, 4),
+        5 => (RecordFieldType::I48, 6),
+        6 => (RecordFieldType::I64, 8),
+        7 => (RecordFieldType::Float, 8),
+        8 => (RecordFieldType::Zero, 0),
+        9 => (RecordFieldType::One, 0),
+        n if n >= 12 && n % 2 == 0 => {
+            let size = ((n - 12) / 2) as usize;
+            (RecordFieldType::Blob(size), size)
+        }
+        n if n >= 13 && n % 2 == 1 => {
+            let size = ((n - 13) / 2) as usize;
+            (RecordFieldType::String(size), size)
+        }
+        n => anyhow::bail!("unsupported field type: {}", n),
+    })
 }
 
 pub struct Record {
