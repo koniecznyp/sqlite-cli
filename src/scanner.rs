@@ -1,4 +1,4 @@
-use anyhow::{ Ok, Context };
+use anyhow::{ Context, Ok, bail };
 use crate::page_reader::{ PageReader, read_varint };
 
 #[derive(Debug)]
@@ -120,6 +120,21 @@ impl Record {
             RecordFieldType::One => Ok(Some(RecordValue::Int(1))),
             _ => anyhow::bail!("Unsupported field type: {:?}", record_field.field_type),
         }
+    }
+
+    pub fn to_string(&self) -> anyhow::Result<String> {
+        let mut field_values = vec!();
+        for i in 0..self.header.fields.len() {
+            if let Some(value) = self.field(i)? {
+                let value = match value {
+                    RecordValue::String(s) => s,
+                    RecordValue::Int(i) => i.to_string(),
+                    _ => bail!("unsupported value type for to_string")
+                };
+                field_values.push(value);
+            }
+        }
+        Ok(field_values.join("|"))
     }
 }
 

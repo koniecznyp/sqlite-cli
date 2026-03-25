@@ -1,9 +1,7 @@
-use std::io::{ Write, stdin, stdout };
-use anyhow::{ Ok };
+use std::{io::{ Write, stdin, stdout}};
+use anyhow::{Ok};
 
-use crate::{
-    database::Database,
-    planner::Planner };
+use crate::database::Database;
 
 mod database;
 mod page_reader;
@@ -13,6 +11,7 @@ mod parser;
 mod tokenizer;
 mod planner;
 mod query_plan;
+mod executor;
 
 fn main() -> anyhow::Result<()> {
     let database = database::Database::load_file("test.db")?;
@@ -48,10 +47,12 @@ fn list_tables(database: &Database) -> anyhow::Result<()> {
 
 fn process_query(database: &Database, query: &str) -> anyhow::Result<()> {
     let statement = parser::parse_sql(query)?;
-    let query_plan = Planner::new(database).compile(&statement)?;
+    let query_plan = planner::Planner::new(database).compile(&statement)?;
+    let mut executor = executor::Executor::new(&query_plan)?;
 
-    println!("{:#?}", query_plan);
-    // todo execute plan
+    while let Some(record) = executor.get_next_row()? {
+        println!("{}", record.to_string()?);
+    }
     Ok(())
 }
 

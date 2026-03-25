@@ -2,7 +2,7 @@ use crate::{scanner::Scanner };
 
 #[derive(Debug)]
 pub struct QueryPlan{
-    root: PlanNode
+    pub root: PlanNode
 }
 
 impl QueryPlan {
