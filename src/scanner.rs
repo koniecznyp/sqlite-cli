@@ -3,12 +3,12 @@ use crate::page_reader::{ PageReader, read_varint };
 use crate::page::Page;
 
 #[derive(Debug)]
-pub struct Scanner {
-    page_reader: PageReader
+pub struct Scanner<'a> {
+    page_reader: &'a PageReader
 }
 
-impl Scanner {
-    pub fn new(page_reader: PageReader) -> Self {
+impl<'a> Scanner<'a> {
+    pub fn new(page_reader: &'a PageReader) -> Self {
         Scanner {
             page_reader
         }

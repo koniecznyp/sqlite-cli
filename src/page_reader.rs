@@ -15,15 +15,6 @@ pub struct PageReader<I: Read + Seek = std::fs::File> {
     file: Arc<Mutex<I>>
 }
 
-impl Clone for PageReader {
-    fn clone(&self) -> Self {
-        Self {
-            db_header: self.db_header,
-            file: self.file.clone()
-        }
-    }
-}
-
 impl<I: Seek + Read> PageReader<I> {
     pub fn new(db_header: DatabaseHeader, file: I) -> Self {
         Self {

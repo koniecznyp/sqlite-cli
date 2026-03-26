@@ -47,7 +47,8 @@ fn list_tables(database: &Database) -> anyhow::Result<()> {
 
 fn process_query(database: &Database, query: &str) -> anyhow::Result<()> {
     let statement = parser::parse_sql(query)?;
-    let query_plan = planner::Planner::new(database).compile(&statement)?;
+    let planner = planner::Planner::new(database);
+    let query_plan = planner.compile(&statement)?;
     let mut executor = executor::Executor::new(&query_plan)?;
 
     while let Some(record) = executor.get_next_row()? {

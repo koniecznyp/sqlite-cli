@@ -9,7 +9,7 @@ use crate::{
 pub const HEADER_SIZE: usize = 100;
 pub const HEADER_PAGE_SIZE_OFFSET: usize = 16;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct DatabaseHeader {
     pub page_size: u16
 }
@@ -30,16 +30,16 @@ impl Database {
 
         let page_reader = PageReader::new(header, db_file);
 
-        let tables = Database::get_tables(page_reader.clone())?;
+        let tables = Database::get_tables(&page_reader)?;
 
         Ok(Database { page_reader, tables })
     }
 
-    pub fn get_scanner(&self) -> Scanner {
-        Scanner::new(self.page_reader.clone())
+    pub fn get_scanner(&self) -> Scanner<'_> {
+        Scanner::new(&self.page_reader)
     }
 
-    fn get_tables(page_reader: PageReader) -> anyhow::Result<Vec<Table>> {
+    fn get_tables(page_reader: &PageReader) -> anyhow::Result<Vec<Table>> {
         let scanner = Scanner::new(page_reader);
 
         let mut tables = vec!();

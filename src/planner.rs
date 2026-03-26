@@ -15,14 +15,14 @@ impl<'a> Planner<'a> {
         Self { database }
     }
 
-    pub fn compile(&self, statement: &Statement) -> anyhow::Result<QueryPlan> {
+    pub fn compile(&self, statement: &Statement) -> anyhow::Result<QueryPlan<'a>> {
         match statement {
-            Statement::Select(select_statement) => self.compile_select(select_statement),
+            Statement::Select(select_statement) => self.compile_select(select_statement), 
             _ => bail!("unsupported statement")
         }
     }
 
-    fn compile_select(&self, select_statement: &SelectStatement) -> anyhow::Result<QueryPlan> {
+    fn compile_select(&self, select_statement: &SelectStatement) -> anyhow::Result<QueryPlan<'a>> {
         let table = self.database.tables
             .iter()
             .find(|t| t.name == select_statement.from)

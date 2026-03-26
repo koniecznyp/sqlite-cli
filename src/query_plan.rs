@@ -1,22 +1,22 @@
 use crate::{scanner::Scanner };
 
 #[derive(Debug)]
-pub struct QueryPlan{
-    pub root: PlanNode
+pub struct QueryPlan<'a> {
+    pub root: PlanNode<'a>
 }
 
-impl QueryPlan {
-    pub fn new(root: PlanNode) -> Self {
+impl<'a> QueryPlan<'a> {
+    pub fn new(root: PlanNode<'a>) -> Self {
         Self { root }
     }
 }
 #[derive(Debug)]
-pub enum PlanNode {
-    SeqScan(SeqScanNode)
+pub enum PlanNode<'a> {
+    SeqScan(SeqScanNode<'a>)
 }
 
 #[derive(Debug)]
-pub struct SeqScanNode {
-    pub scanner: Scanner,
+pub struct SeqScanNode<'a> {
+    pub scanner: Scanner<'a>,
     pub rootpage: usize
 }
