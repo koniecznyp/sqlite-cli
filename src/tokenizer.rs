@@ -14,7 +14,7 @@ pub fn tokenize(query: &str) -> Vec<Token> {
             "select" => tokens.push(Token::Select),
             "*" => tokens.push(Token::Star),
             "from" => tokens.push(Token::From),
-            _ => tokens.push(Token::Table(keyword.to_string())),
+            _ => tokens.push(Token::Table(keyword.to_lowercase())),
         }
     }
     tokens
@@ -43,25 +43,20 @@ mod tests {
 
     #[test]
     fn test_case_insensitivity() {
-        let input = "seLeCt fRoM";
+        let input = "seLeCt * fRoM foO";
 
         let result = tokenize(input);
 
-        assert_eq!(result, vec![Token::Select, Token::From]);
-    }
-
-    #[test]
-    fn test_unknown_table() {
-        let input = "SELECT products";
-
-        let result = tokenize(input);
-
-        assert_eq!(result[1], Token::Table("products".to_string()));
+        assert_eq!(result, vec![
+            Token::Select,
+            Token::Star,
+            Token::From,
+            Token::Table("foo".to_string())]);
     }
 
     #[test]
     fn test_whitespaces() {
-        let input = "SELECT * from";
+        let input = "SELECT   *     from";
         let result = tokenize(input);
 
         assert_eq!(
