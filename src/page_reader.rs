@@ -76,7 +76,8 @@ impl<I: Seek + Read> PageReader<I> {
     fn get_cells(data: &[u8], cell_pointers: Vec<u16>) -> anyhow::Result<Vec<Cell>> {
         let mut cells = vec!();
         for cell_pointer in cell_pointers {
-            let payload_size = read_varint_at(&data, cell_pointer as usize);
+            let mut pos = cell_pointer as usize;
+            let payload_size = read_varint(&data, &mut pos);
             let offset = cell_pointer as usize + 2;
             cells.push(Cell { payload: data[offset..offset + payload_size as usize].to_vec()});
         }
@@ -106,25 +107,20 @@ pub fn read_varint(data: &[u8], pos: &mut usize) -> u64 {
     }
 }
 
-pub fn read_varint_at(data: &[u8], mut offset: usize) -> u64 {
-    let mut size = 0;
-    let mut result = 0;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_case::test_case;
 
-    while size < 9 {
-        let current_byte = data[offset] as u64;
-        if size == 8 {
-            result = (result << 8) | current_byte;
-        } else {
-            result = (result << 7) | (current_byte & 0b0111_1111);
-        }
-
-        offset += 1;
-        size += 1;
-
-        if current_byte & 0b1000_0000 == 0 {
-            break;
-        }
+    #[test_case(&[0x00], 0)]
+    #[test_case(&[0x01], 1)]
+    #[test_case(&[0x64], 100)]
+    #[test_case(&[0xE8, 0x07], 1000)]
+    #[test_case(&[0xA0, 0x8D, 0x06], 100_000)]
+    #[test_case(&[0xC0, 0x84, 0x3D], 1_000_000)]
+    fn read_varint_tests(data: &[u8], expected: u64) {
+        let mut pos = 0;
+        let value = read_varint(data, &mut pos);
+        assert_eq!(value, expected);
     }
-
-    result
 }
