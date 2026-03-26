@@ -42,7 +42,7 @@ impl Database {
     fn get_tables(page_reader: &PageReader) -> anyhow::Result<Vec<Table>> {
         let scanner = Scanner::new(page_reader);
 
-        let mut tables = vec!();
+        let mut tables = Vec::new();
         for record in scanner.scan(1)? {
             tables.push(Table::from_record(&record?)?);
         }

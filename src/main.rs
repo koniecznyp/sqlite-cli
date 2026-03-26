@@ -18,7 +18,7 @@ fn main() -> anyhow::Result<()> {
     cli(database)
 }
 
-fn cli(mut database: Database) -> anyhow::Result<()> {
+fn cli(database: Database) -> anyhow::Result<()> {
     flush_console();
 
     let mut input_buffer = String::new();
@@ -26,8 +26,8 @@ fn cli(mut database: Database) -> anyhow::Result<()> {
     while stdin().read_line(&mut input_buffer).is_ok() {
         match input_buffer.trim() {
             ".exit" => break,
-            ".tables" => list_tables(&mut database)?,
-            query => process_query(&mut database, query)?
+            ".tables" => list_tables(&database)?,
+            query => process_query(&database, query)?
         }
 
         flush_console();
@@ -59,5 +59,5 @@ fn process_query(database: &Database, query: &str) -> anyhow::Result<()> {
 
 fn flush_console() {
     print!("db> ");
-    stdout().flush().ok();
+    let _ = stdout().flush();
 }

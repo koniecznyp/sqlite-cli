@@ -56,7 +56,7 @@ fn parse_record(payload: &[u8]) -> anyhow::Result<Record> {
     let header_size = read_varint(payload, &mut pos) as usize;
 
     let mut offset = header_size;
-    let mut record_fields = vec!();
+    let mut record_fields = Vec::new();
     
     for _ in 0..header_size - 1 {
         let type_code = read_varint(payload, &mut pos);
@@ -149,7 +149,7 @@ impl Record {
     }
 
     pub fn to_string(&self) -> anyhow::Result<String> {
-        let mut field_values = vec!();
+        let mut field_values = Vec::new();
         for i in 0..self.header.fields.len() {
             if let Some(value) = self.field(i)? {
                 let value = match value {

@@ -1,7 +1,7 @@
-use anyhow::{ Ok };
+use anyhow::{ Context, Ok };
 use std::{
-    io:: { Read, Seek, SeekFrom },
-    sync:: { Arc, Mutex }};
+    cell::RefCell,
+    io:: { Read, Seek, SeekFrom }};
 
 use crate::{
     database::{ self, DatabaseHeader },
@@ -12,14 +12,14 @@ pub const PAGE_CELLS_COUNT_OFFSET: usize = 3;
 #[derive(Debug)]
 pub struct PageReader<I: Read + Seek = std::fs::File> {
     db_header: DatabaseHeader,
-    file: Arc<Mutex<I>>
+    file: RefCell<I>,
 }
 
 impl<I: Seek + Read> PageReader<I> {
     pub fn new(db_header: DatabaseHeader, file: I) -> Self {
         Self {
             db_header: db_header,
-            file: Arc::new(Mutex::new(file)),
+            file: RefCell::new(file),
         }
     }
 
@@ -40,13 +40,12 @@ impl<I: Seek + Read> PageReader<I> {
     fn read_file_content(&self, page_num: usize) -> anyhow::Result<Vec<u8>> {
         let offset = page_num.saturating_sub(1) * self.db_header.page_size as usize;
 
-        let mut file_guard  = self.file.lock().unwrap();
-        file_guard
-            .seek(SeekFrom::Start(offset as u64))
-            .ok();
+        let mut file = self.file.borrow_mut();
+
+        file.seek(SeekFrom::Start(offset as u64))?;
 
         let mut buffer = vec![0; self.db_header.page_size as usize];
-        file_guard.read_exact(&mut buffer)?;
+        file.read_exact(&mut buffer)?;
         
         Ok(buffer)
     }
@@ -74,7 +73,7 @@ impl<I: Seek + Read> PageReader<I> {
     }
 
     fn get_cells(data: &[u8], cell_pointers: Vec<u16>) -> anyhow::Result<Vec<Cell>> {
-        let mut cells = vec!();
+        let mut cells = Vec::new();
         for cell_pointer in cell_pointers {
             let mut pos = cell_pointer as usize;
             let payload_size = read_varint(&data, &mut pos);
