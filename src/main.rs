@@ -26,6 +26,7 @@ fn cli(database: Database) -> anyhow::Result<()> {
     while stdin().read_line(&mut input_buffer).is_ok() {
         match input_buffer.trim() {
             ".exit" => break,
+            ".dbinfo" => show_dbinfo(&database)?,
             ".tables" => list_tables(&database)?,
             query => process_query(&database, query)?
         }
@@ -35,6 +36,14 @@ fn cli(database: Database) -> anyhow::Result<()> {
         input_buffer.clear();
     }
 
+    Ok(())
+}
+
+fn show_dbinfo(database: &Database) -> anyhow::Result<()> {
+    println!("database page size:\t{}", database.header.page_size);
+    println!("database page count:\t{}", database.header.page_count);
+    println!("software version:\t{}", database.header.version);
+    println!("... other metadata");
     Ok(())
 }
 

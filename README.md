@@ -1,6 +1,6 @@
-# SQLite Database Reader
+# SQLite db reader cli
 
-This project is my Rust learning project focused on implementing a simple SQLite database file reader. The primary goal is to deepen understanding and play with the Rust language through hands-on experience with binary file parsing, data structures, and command-line interface development. The application reads SQLite database file and support basic dot command `.tables` for displaying available tables. (see more [sqlite cli](https://sqlite.org/cli.html) and [sqlite3 file format](https://sqlite.org/fileformat.html)).
+This project is my `Rust` learning project focused on implementing a simple SQLite database file reader. The primary goal is to deepen understanding and play with the Rust language through hands-on experience with binary file parsing, data structures, and command-line interface development. The application reads SQLite database file and support queries like `select * from ..` and basic dot commands like `.tables` for displaying available tables or `.dbinfo` to see some metadata about db itself. (see more [sqlite cli](https://sqlite.org/cli.html) and [sqlite3 file format](https://sqlite.org/fileformat.html)).
 
 ## SQLite3 File Structure
 
@@ -15,9 +15,9 @@ File
 │
 ├─ Page 1 (4096 bytes by default)
 │  ├─ Page Header
-│  ├─ Cell Pointers (N × 2 bytes) [-> grow direction ->] 
-│  ├─ ... free space
-│  └─ Cell Content / Payload [<- grow direction <-]
+│  ├─ Cell Pointers (N × 2 bytes)
+│  │   ... free space
+│  └─ Cell Content / Payload
 │
 ├─ Page 2
 │  └─ (same structure as Page 1, no DB header)
@@ -34,7 +34,7 @@ A SQLite database is not a continuous stream of data; it is divided into equal-s
 | (Flags, offset to first freeblock, cell count, etc.)      |
 +-----------------------------------------------------------+
 | Cell Pointer Array (Offsets)                              |
-| [Offset 1] [Offset 2] [Offset 3] ...                      |
+| [Offset 1] [Offset 2] [Offset 3] ... growth direction --> |
 +-----------------------------------------------------------+
 | Unallocated Space (Free Space)                            |
 |                                                           |
@@ -42,7 +42,7 @@ A SQLite database is not a continuous stream of data; it is divided into equal-s
 |                                                           |
 +-----------------------------------------------------------+
 | Cell Payload Area (Data & Keys)                           |
-|                                         [Cell 3 Content]  |
+|                <-- growth direction ... [Cell 3 Content]  |
 |                        [Cell 2 Content] [Cell 1 Content]  |
 +-----------------------------------------------------------+
 ```
@@ -62,23 +62,28 @@ Cell is a variable-length structure stored within a B-Tree page. Because SQLite 
 ```
 
 *A Varint (Variable-length Integer) is a space-saving encoding used by SQLite to store 64-bit integers using as few bytes as possible. Instead of always using 8 bytes for a small number like 10, SQLite uses between 1 and 9 bytes based on the value's magnitude.
+
 ## How to Run
 
-1. Ensure Rust is installed: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-2. Clone this repository
-3. Navigate to the project directory: `cd sqlite-cli`
-4. Build the project: `cargo build`
-5. Run the application: `cargo run`
+1. Navigate to the project directory: `cd sqlite-cli`
+2. Build the project: `cargo build`
+3. Run the application: `cargo run`
+4. Optional: `cargo test`
 
 ## Usage Example
 
 ```bash
 cargo run
+db> .dbinfo
+database page size:     4096
+database page count:    5
+software version:       3051000
+... other metadata
 db> .tables
-numbers
-books
-cars
-settings
+numbers   books   cars
+db> select * from books
+1|lord of the rings
+2|hobbit
 db> .exit
 ```
 
@@ -88,9 +93,25 @@ db> .exit
 - `database.rs`: Core database structure and file handling
 - `page.rs`: Page parsing and management logic
 - `page_reader.rs`: Low-level page reading utilities
-- `scanner.rs`: Data scanning and record parsing functionality
+- `tokenizer.rs`: parse input string into list of tokens
+- `parser.rs`: validates statement based on tokens 
+- `scanner.rs`: Data scanning and record parsing
+- `executor.rs`: read records based on given query plan
 
 ## Todo
-- fix page header 8/12 bytes (now its hardcoded for simplicity)
-- improve scanner and fetching rows (`scanner::scan()`)
-- parse basic sql query -> select statement
+- ✅ improve scanner and fetching rows (`scanner::scan()`)
+- ✅ parse basic sql query -> select statement
+- fix page header size 8/12 bytes (now its hardcoded for simplicity)
+- fix warnings
+- add some other tests
+
+## Future ideas
+- improve select statement to specify direct columns instead of only `select *`
+- introduce simple filter predicate(s) using `where`
+- introduce other types of dot commands (see https://sqlite.org/cli.html)
+- handle other types of statements like `insert`
+- handle multipaging
+
+## Want to contribute?
+
+Want to get your hands dirty with Rust? This project is a safe space to practice. Whether it's a small fix or a new module, your contributions are the best way to learn 💡

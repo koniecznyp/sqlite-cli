@@ -1,14 +1,14 @@
-use anyhow::{ Context, Ok, bail };
+use anyhow::{ Context, bail };
 use crate::page_reader::{ PageReader, read_varint };
 use crate::page::Page;
 
 #[derive(Debug)]
 pub struct Scanner<'a> {
-    page_reader: &'a PageReader
+    page_reader: PageReader<'a>
 }
 
 impl<'a> Scanner<'a> {
-    pub fn new(page_reader: &'a PageReader) -> Self {
+    pub fn new(page_reader: PageReader<'a>) -> Self {
         Scanner {
             page_reader
         }

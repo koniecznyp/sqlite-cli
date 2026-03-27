@@ -1,7 +1,5 @@
-use anyhow::{ Context, Ok };
-use std::{
-    cell::RefCell,
-    io:: { Read, Seek, SeekFrom }};
+use std::io::{ Read, Seek, SeekFrom };
+use std::fs::File;
 
 use crate::{
     database::{ self, DatabaseHeader },
@@ -10,23 +8,23 @@ use crate::{
 pub const PAGE_CELLS_COUNT_OFFSET: usize = 3;
 
 #[derive(Debug)]
-pub struct PageReader<I: Read + Seek = std::fs::File> {
-    db_header: DatabaseHeader,
-    file: RefCell<I>,
+pub struct PageReader<'a> {
+    db_header: &'a DatabaseHeader,
+    file: &'a File
 }
 
-impl<I: Seek + Read> PageReader<I> {
-    pub fn new(db_header: DatabaseHeader, file: I) -> Self {
+impl<'a> PageReader<'a> {
+    pub fn new(db_header: &'a DatabaseHeader, file: &'a File) -> Self {
         Self {
-            db_header: db_header,
-            file: RefCell::new(file),
+            db_header,
+            file,
         }
     }
 
     pub fn read_page(&self, page_num: usize) -> anyhow::Result<Page> {
         let data = self.read_file_content(page_num)?;
         let offset = if page_num == 1 { database::HEADER_SIZE } else { 0 };
-        let content_offset= &data[offset..];
+        let content_offset = &data[offset..];
         
         let header = Self::parse_page_header(&content_offset)?; 
         let cell_pointers = Self::get_cell_pointers(
@@ -40,7 +38,7 @@ impl<I: Seek + Read> PageReader<I> {
     fn read_file_content(&self, page_num: usize) -> anyhow::Result<Vec<u8>> {
         let offset = page_num.saturating_sub(1) * self.db_header.page_size as usize;
 
-        let mut file = self.file.borrow_mut();
+        let mut file = self.file; 
 
         file.seek(SeekFrom::Start(offset as u64))?;
 

@@ -1,5 +1,4 @@
 use std::{ io::Read, fs::File };
-
 use anyhow::Context;
 
 use crate::{
@@ -8,14 +7,19 @@ use crate::{
 
 pub const HEADER_SIZE: usize = 100;
 pub const HEADER_PAGE_SIZE_OFFSET: usize = 16;
+pub const HEADER_PAGE_COUNT_OFFSET: usize = 28;
+pub const HEADER_VERSION_OFFSET: usize = 96;
 
 #[derive(Debug)]
 pub struct DatabaseHeader {
-    pub page_size: u16
+    pub page_size: u16,
+    pub page_count: u32,
+    pub version: u32
 }
 
 pub struct Database {
-    pub page_reader: PageReader,
+    pub header: DatabaseHeader,
+    pub db_file: File,
     pub tables: Vec<Table>
 }
 
@@ -28,25 +32,29 @@ impl Database {
 
         let header = Database::parse_header(&bytes)?;
 
-        let page_reader = PageReader::new(header, db_file);
+        let tables = {
+            Database::get_tables(PageReader::new(&header, &db_file))?
+        };
 
-        let tables = Database::get_tables(&page_reader)?;
-
-        Ok(Database { page_reader, tables })
+        Ok(Database { header, db_file, tables })
     }
 
     pub fn get_scanner(&self) -> Scanner<'_> {
-        Scanner::new(&self.page_reader)
+        Scanner::new(self.get_reader()) 
     }
 
-    fn get_tables(page_reader: &PageReader) -> anyhow::Result<Vec<Table>> {
+    fn get_reader(&self) -> PageReader<'_> {
+        PageReader::new(&self.header, &self.db_file)
+    }
+
+    fn get_tables(page_reader: PageReader<'_>) -> anyhow::Result<Vec<Table>> {
         let scanner = Scanner::new(page_reader);
 
         let mut tables = Vec::new();
         for record in scanner.scan(1)? {
             tables.push(Table::from_record(&record?)?);
         }
-        
+
         Ok(tables)
     }
 
@@ -54,7 +62,13 @@ impl Database {
         let page_size = u16::from_be_bytes(
             bytes[HEADER_PAGE_SIZE_OFFSET..HEADER_PAGE_SIZE_OFFSET + 2].try_into().unwrap());
 
-        Ok(DatabaseHeader{ page_size })
+        let page_count = u32::from_be_bytes(
+            bytes[HEADER_PAGE_COUNT_OFFSET..HEADER_PAGE_COUNT_OFFSET + 4].try_into().unwrap());
+
+        let version = u32::from_be_bytes(
+            bytes[HEADER_VERSION_OFFSET..HEADER_VERSION_OFFSET + 4].try_into().unwrap());
+
+        Ok(DatabaseHeader { page_size, page_count, version })
     }
 }
 
