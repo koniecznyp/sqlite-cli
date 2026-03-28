@@ -40,17 +40,23 @@ fn cli(database: Database) -> anyhow::Result<()> {
 }
 
 fn show_dbinfo(database: &Database) -> anyhow::Result<()> {
-    println!("database page size:\t{}", database.header.page_size);
-    println!("database page count:\t{}", database.header.page_count);
-    println!("software version:\t{}", database.header.version);
-    println!("... other metadata");
+    println!(
+        "database page size:\t{}\n\
+         database page count:\t{}\n\
+         software version:\t{}\n\
+         ...other metadata",
+        database.header.page_size,
+        database.header.page_count,
+        database.header.version);
     Ok(())
 }
 
 fn list_tables(database: &Database) -> anyhow::Result<()> {
-    for table in &database.tables {
-        println!("{}", &table.name);
-    }
+    let mut tables = database.tables.iter()
+        .map(|t| t.name.as_str())
+        .collect::<Vec<_>>();
+    tables.sort();
+    print!("{}\n", tables.join("\t"));
     Ok(())
 }
 

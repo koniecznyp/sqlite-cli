@@ -101,7 +101,7 @@ db> .exit
 ## Todo
 - ✅ improve scanner and fetching rows (`scanner::scan()`)
 - ✅ parse basic sql query -> select statement
-- fix page header size 8/12 bytes (now its hardcoded for simplicity)
+- ✅ fix page header size 8/12 bytes (now its hardcoded for simplicity)
 - fix warnings
 - add some other tests
 

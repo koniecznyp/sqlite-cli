@@ -1,4 +1,4 @@
-use anyhow::{Ok, bail};
+use anyhow::{ Ok };
 
 use crate::{
     database::Database,
@@ -17,8 +17,7 @@ impl<'a> Planner<'a> {
 
     pub fn compile(&self, statement: &Statement) -> anyhow::Result<QueryPlan<'a>> {
         match statement {
-            Statement::Select(select_statement) => self.compile_select(select_statement), 
-            _ => bail!("unsupported statement")
+            Statement::Select(select_statement) => self.compile_select(select_statement)
         }
     }
 

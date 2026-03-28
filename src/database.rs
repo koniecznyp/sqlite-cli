@@ -52,7 +52,9 @@ impl Database {
 
         let mut tables = Vec::new();
         for record in scanner.scan(1)? {
-            tables.push(Table::from_record(&record?)?);
+            if let Some(table) = Table::from_record(&record?)? {
+                tables.push(table);
+            }
         }
 
         Ok(tables)
@@ -78,7 +80,17 @@ pub struct Table {
 }
 
 impl Table {
-    pub fn from_record(record: &Record) -> anyhow::Result<Table> {
+    pub fn from_record(record: &Record) -> anyhow::Result<Option<Table>> {
+        let type_name = record
+            .field(0)?
+            .context("type")?
+            .as_string()
+            .context("type must be a string")?;
+
+        if type_name != "table" {
+            return Ok(None)
+        }
+
         let tbl_name = record
             .field(2)?
             .context("tbl_name")?
@@ -91,6 +103,6 @@ impl Table {
             .as_int()
             .context("rootpage must be an integer")? as usize;
 
-        Ok(Table { name: tbl_name, rootpage: rootpage })
+        Ok(Some(Table { name: tbl_name, rootpage: rootpage }))
     }
 }

@@ -1,11 +1,14 @@
 use std::io::{ Read, Seek, SeekFrom };
 use std::fs::File;
 
+use crate::page::PageType;
 use crate::{
     database::{ self, DatabaseHeader },
     page::{ Page, PageHeader, Cell }};
 
 pub const PAGE_CELLS_COUNT_OFFSET: usize = 3;
+pub const PAGE_TYPE_TABLE_LEAF: u8 = 13;
+pub const PAGE_TYPE_TABLE_INTERIOR: u8 = 5;
 
 #[derive(Debug)]
 pub struct PageReader<'a> {
@@ -49,13 +52,21 @@ impl<'a> PageReader<'a> {
     }
 
     fn parse_page_header(buffer: &[u8]) -> anyhow::Result<PageHeader> {
-        let size = 8;
+        let (page_type, page_size) = Self::parse_page_type(&buffer)?;
         let cell_count = u16::from_be_bytes(
             buffer[PAGE_CELLS_COUNT_OFFSET..PAGE_CELLS_COUNT_OFFSET + 2]
             .try_into()
             .unwrap());
 
-        Ok(PageHeader { size, cell_count })
+        Ok(PageHeader { page_type, size: page_size, cell_count })
+    }
+
+    fn parse_page_type(buffer: &[u8]) -> anyhow::Result<(PageType, usize)> {
+        Ok(match buffer[0] {
+            PAGE_TYPE_TABLE_LEAF => (PageType::TableLeaf, 8),
+            PAGE_TYPE_TABLE_INTERIOR => (PageType::TableInterior, 12),
+            _ => anyhow::bail!("unknown page type")
+        })
     }
 
     fn get_cell_pointers(buffer: &[u8], cell_count: u16) -> anyhow::Result<Vec<u16>> {

@@ -32,7 +32,7 @@ impl Iterator for RecordIter {
     type Item = anyhow::Result<Record>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current_cell >= self.page.header.cell_count as usize {
+        if self.current_cell >= self.page.get_cell_count() {
             return None;
         }
 
@@ -155,6 +155,7 @@ impl Record {
                 let value = match value {
                     RecordValue::String(s) => s,
                     RecordValue::Int(i) => i.to_string(),
+                    RecordValue::Float(i) => i.to_string(),
                     _ => bail!("unsupported value type for to_string")
                 };
                 field_values.push(value);
@@ -199,6 +200,7 @@ impl RecordValue {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum RecordFieldType {
     Null,
     I8,
