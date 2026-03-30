@@ -1,8 +1,9 @@
 use anyhow::{ Context, bail };
+use std::collections::VecDeque;
 use crate::page_reader::{ PageReader, read_varint };
-use crate::page::Page;
+use crate::page::{Page, Cell};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Scanner<'a> {
     page_reader: PageReader<'a>
 }
@@ -14,40 +15,66 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub fn scan(&self, page_num: usize) -> anyhow::Result<RecordIter> {
-        let page = self.page_reader.read_page(page_num)?;
+    pub fn scan(self, root_page: usize) -> anyhow::Result<RecordIter<'a>> {
+        let mut pages_to_visit = VecDeque::new();
+        pages_to_visit.push_back(root_page);
+
         Ok(RecordIter {
-            page,
+            page_reader: self.page_reader,
             current_cell: 0,
+            pages_to_visit,
+            current_page: None
         })
     }
 }
 
-pub struct RecordIter {
-    page: Page,
+pub struct RecordIter<'a> {
+    page_reader: PageReader<'a>,
+    pages_to_visit: VecDeque<usize>,
+    current_page: Option<Page>,
     current_cell: usize,
 }
 
-impl Iterator for RecordIter {
+impl<'a> Iterator for RecordIter<'a> {
     type Item = anyhow::Result<Record>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current_cell >= self.page.get_cell_count() {
-            return None;
-        }
-
-        let cell = match self.page.cells.get(self.current_cell) {
-            Some(cell) => cell,
-            None => {
-                self.current_cell += 1;
-                return Some(Err(anyhow::anyhow!("cannot read cell")));
+        loop {
+            if let Some(ref page) = self.current_page {
+                if self.current_cell < page.get_cell_count() {
+                    let cell = &page.cells[self.current_cell];
+                    self.current_cell += 1;
+                    
+                    match cell {
+                        Cell::TableLeaf { payload } => return Some(parse_record(payload)),
+                        Cell::TableInterior { left_child_page } => {
+                            self.pages_to_visit.push_back(*left_child_page as usize);
+                            continue;
+                        }
+                    }
+                }
+                else {
+                    if let Some(right_most) = page.header.right_most_pointer {
+                        self.pages_to_visit.push_back(right_most as usize);
+                    }
+                    self.current_page = None;
+                }
             }
-        };
 
-        self.current_cell += 1;
-
-        let result = parse_record(&cell.payload);
-        Some(result)
+            match self.pages_to_visit.pop_front() {
+                Some(page_num) => {
+                    match self.page_reader.read_page(page_num) {
+                        Ok(page) => {
+                            println!("--- reading page {} ttype: {:?}", page_num, page.header.page_type);
+                            self.current_page = Some(page);
+                            self.current_cell = 0;
+                        }
+                        Err(e) => return Some(Err(e))
+                    }
+                }
+                None => return None
+            }
+        }
     }
 }
 

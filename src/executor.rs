@@ -3,12 +3,11 @@ use crate::query_plan::PlanNode;
 use crate::scanner::RecordIter;
 use crate::scanner::Record;
 
-pub struct Executor {
-    rows_iter: RecordIter
+pub struct Executor<'a> {
+    rows_iter: RecordIter<'a>
 }
-
-impl Executor {
-    pub fn new(query_plan: &QueryPlan) -> anyhow::Result<Self> {
+impl<'a> Executor<'a> {
+    pub fn new(query_plan: &'a QueryPlan<'a>) -> anyhow::Result<Self> {
         let select = &query_plan.root;
         let node = match select {
             PlanNode::SeqScan(node) => node

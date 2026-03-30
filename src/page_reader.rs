@@ -9,8 +9,9 @@ use crate::{
 pub const PAGE_CELLS_COUNT_OFFSET: usize = 3;
 pub const PAGE_TYPE_TABLE_LEAF: u8 = 13;
 pub const PAGE_TYPE_TABLE_INTERIOR: u8 = 5;
+pub const PAGE_RIGHT_MOST_POINTER_OFFSET: usize = 8;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct PageReader<'a> {
     db_header: &'a DatabaseHeader,
     file: &'a File
@@ -33,7 +34,7 @@ impl<'a> PageReader<'a> {
         let cell_pointers = Self::get_cell_pointers(
             &data[offset + header.size..],
             header.cell_count)?;
-        let cells = Self::get_cells(&data, cell_pointers)?;
+        let cells = Self::get_cells(&data, cell_pointers, &header.page_type)?;
 
         Ok(Page { header, cells })
     }
@@ -58,7 +59,15 @@ impl<'a> PageReader<'a> {
             .try_into()
             .unwrap());
 
-        Ok(PageHeader { page_type, size: page_size, cell_count })
+        let right_most_pointer = match page_type {
+            PageType::TableInterior => Some(u32::from_be_bytes(
+                buffer[PAGE_RIGHT_MOST_POINTER_OFFSET..PAGE_RIGHT_MOST_POINTER_OFFSET + 4]
+                    .try_into()
+                    .unwrap())),
+            _ => None
+        };
+
+        Ok(PageHeader { page_type, size: page_size, cell_count, right_most_pointer})
     }
 
     fn parse_page_type(buffer: &[u8]) -> anyhow::Result<(PageType, usize)> {
@@ -81,13 +90,26 @@ impl<'a> PageReader<'a> {
         Ok(cell_pointers)
     }
 
-    fn get_cells(data: &[u8], cell_pointers: Vec<u16>) -> anyhow::Result<Vec<Cell>> {
+    fn get_cells(data: &[u8], cell_pointers: Vec<u16>, page_type: &PageType) -> anyhow::Result<Vec<Cell>> {
         let mut cells = Vec::new();
         for cell_pointer in cell_pointers {
             let mut pos = cell_pointer as usize;
-            let payload_size = read_varint(&data, &mut pos);
-            let offset = cell_pointer as usize + 2;
-            cells.push(Cell { payload: data[offset..offset + payload_size as usize].to_vec()});
+            match page_type {
+                PageType::TableLeaf => {
+                    let payload_size = read_varint(&data, &mut pos);
+                    let _rowid = read_varint(&data, &mut pos);
+                    
+                    cells.push(Cell::TableLeaf { 
+                        payload: data[pos..pos + payload_size as usize].to_vec() 
+                    });
+                },
+                PageType::TableInterior => {
+                    let left_child_page = u32::from_be_bytes(
+                        data[pos..pos + 4].try_into().unwrap()
+                    );
+                    cells.push(Cell::TableInterior { left_child_page });
+                }
+            }
         }
         Ok(cells)
     }
@@ -130,5 +152,29 @@ mod tests {
         let mut pos = 0;
         let value = read_varint(data, &mut pos);
         assert_eq!(value, expected);
+    }
+
+    #[test]
+    fn get_table_leaf_cell_test_() {
+        let data: [u8; 5] = [0x03, 0x01, 0x03, 0x04, 0x05];
+        let cell_pointers = vec![0];
+
+        let cells = PageReader::get_cells(&data, cell_pointers, &PageType::TableLeaf).unwrap();
+
+        assert_eq!(
+            cells,
+            vec![Cell::TableLeaf { payload: vec![0x03, 0x04, 0x05] }]);
+    }
+
+    #[test]
+    fn get_table_interior_cell_test_() {
+        let data: [u8; 4] = [0x00, 0x00, 0x00, 0x11];
+        let cell_pointers = vec![0];
+
+        let cells = PageReader::get_cells(&data, cell_pointers, &PageType::TableInterior).unwrap();
+
+        assert_eq!(
+            cells,
+            vec![Cell::TableInterior { left_child_page: 17u32 } ]);
     }
 }

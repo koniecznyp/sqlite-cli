@@ -63,6 +63,45 @@ Cell is a variable-length structure stored within a B-Tree page. Because SQLite 
 
 *A Varint (Variable-length Integer) is a space-saving encoding used by SQLite to store 64-bit integers using as few bytes as possible. Instead of always using 8 bytes for a small number like 10, SQLite uses between 1 and 9 bytes based on the value's magnitude.
 
+## Multiple pages scanning logic
+
+This diagram shows how the scanner processes a table for example 1000 users. The Root page acts as a map, directing the scanner to specific pages. In this examples we assume that single page can hold 400 user rows. (see also very useful tool for browsing database internals https://sqlite-internal.pages.dev/)
+
+```
+[ Page: table interior (root) type 0x05]
+|
+|-- [ Cell 1 ] key 400, ptr to page 2 --> users with id < 400 are on page 2
+|-- [ Cell 2 ] key 800, ptr to page 5 --> users with id < 800 are on page 5
+|-- [ Header ] ptr page 10 --> Right-most pointer - rest of users are stored on page 10
+|
+v
+[ the scanning process ]
+|
+|   1. Reading page 2 (table leaf, type 0x0D)
+|      +----------------------------+
+|      | Users with IDs: 1 to 400   | --> [fetching records]
+|      |  record 1                  |
+|      |  record 2                  |
+|      |  ...                       |
+|      |  record 400                |
+|      +----------------------------+
+|
+|   2. Reading page 5 (table leaf, type 0x0D)
+|      +----------------------------+
+|      | Users with IDs: 401 to 800 | --> [fetching records]
+|      |  ...                       |
+|      +----------------------------+
+|
+|   3. Reading page 10 (table leaf, type 0x0D)
+|      +----------------------------+
+|      | Users with IDs: 801 to 1000| --> [fetching records]
+|      |  ...                       |
+|      +----------------------------+
+|
+v
+[ scan complete: 1000 rows ]
+```
+
 ## How to Run
 
 1. Navigate to the project directory: `cd sqlite-cli`
@@ -106,11 +145,11 @@ db> .exit
 - add some other tests
 
 ## Future ideas
+- ✅ handle multipaging
 - improve select statement to specify direct columns instead of only `select *`
 - introduce simple filter predicate(s) using `where`
 - introduce other types of dot commands (see https://sqlite.org/cli.html)
 - handle other types of statements like `insert`
-- handle multipaging
 
 ## Want to contribute?
 
