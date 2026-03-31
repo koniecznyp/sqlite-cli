@@ -1,19 +1,19 @@
 #[derive(Debug)]
 pub enum PageType {
     TableLeaf,
-    TableInterior
+    TableInterior,
 }
 
 pub struct PageHeader {
     pub page_type: PageType,
     pub size: usize,
     pub cell_count: u16,
-    pub right_most_pointer: Option<u32>
+    pub right_most_pointer: Option<u32>,
 }
 
 pub struct Page {
     pub header: PageHeader,
-    pub cells: Vec<Cell>
+    pub cells: Vec<Cell>,
 }
 
 impl Page {
@@ -25,5 +25,5 @@ impl Page {
 #[derive(Debug, PartialEq)]
 pub enum Cell {
     TableLeaf { payload: Vec<u8> },
-    TableInterior { left_child_page: u32 }
+    TableInterior { left_child_page: u32 },
 }

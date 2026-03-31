@@ -1,17 +1,16 @@
-use crate::{
-    query_plan::{ QueryPlan, PlanNode },
-    scanner::{ RecordIter, Record }};
+use crate::core::scanner::{Record, RecordIter};
+use crate::sql::query_plan::{PlanNode, QueryPlan};
 
 pub struct Executor<'a> {
-    rows_iter: RecordIter<'a>
+    rows_iter: RecordIter<'a>,
 }
 impl<'a> Executor<'a> {
     pub fn new(query_plan: &'a QueryPlan<'a>) -> anyhow::Result<Self> {
         let select = &query_plan.root;
         let node = match select {
-            PlanNode::SeqScan(node) => node
+            PlanNode::SeqScan(node) => node,
         };
-        
+
         let rows_iter = node.scanner.scan(node.rootpage)?;
         Ok(Self { rows_iter })
     }

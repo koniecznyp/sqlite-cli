@@ -1,5 +1,6 @@
-use anyhow::{Context, Result, anyhow };
-use crate::scanner::{ RecordFieldType, RecordValue };
+use anyhow::{Context, Result, anyhow};
+
+use crate::core::scanner::{RecordFieldType, RecordValue};
 
 pub trait RecordFieldTypeExt {
     fn decode(&self, data: &[u8]) -> Result<Option<RecordValue>>;
@@ -13,9 +14,7 @@ impl RecordFieldTypeExt for RecordFieldType {
                 let s = std::str::from_utf8(data).context("invalid string")?;
                 Ok(Some(RecordValue::String(s.to_string())))
             }
-            RecordFieldType::Blob(_) => {
-                Ok(Some(RecordValue::Blob(data.to_vec())))
-            }
+            RecordFieldType::Blob(_) => Ok(Some(RecordValue::Blob(data.to_vec()))),
             RecordFieldType::I64 => {
                 let val = i64::from_be_bytes(data.try_into().context("invalid i64 bytes")?);
                 Ok(Some(RecordValue::Int(val)))
@@ -37,7 +36,7 @@ impl RecordFieldTypeExt for RecordFieldType {
                 Ok(Some(RecordValue::Int(val as i64)))
             }
             RecordFieldType::Zero => Ok(Some(RecordValue::Int(0))),
-            RecordFieldType::One => Ok(Some(RecordValue::Int(1))),  
+            RecordFieldType::One => Ok(Some(RecordValue::Int(1))),
             _ => Err(anyhow!("unsupported field type: {:?}", self)),
         }
     }

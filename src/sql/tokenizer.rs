@@ -47,11 +47,15 @@ mod tests {
 
         let result = tokenize(input);
 
-        assert_eq!(result, vec![
-            Token::Select,
-            Token::Star,
-            Token::From,
-            Token::Table("foo".to_string())]);
+        assert_eq!(
+            result,
+            vec![
+                Token::Select,
+                Token::Star,
+                Token::From,
+                Token::Table("foo".to_string())
+            ]
+        );
     }
 
     #[test]
@@ -59,11 +63,6 @@ mod tests {
         let input = "SELECT   *     from";
         let result = tokenize(input);
 
-        assert_eq!(
-            result, 
-            vec![
-                Token::Select,
-                Token::Star,
-                Token::From]);
+        assert_eq!(result, vec![Token::Select, Token::Star, Token::From]);
     }
 }

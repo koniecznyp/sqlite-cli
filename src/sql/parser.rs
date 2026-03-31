@@ -1,14 +1,17 @@
+use std::iter::Peekable;
+use std::vec::IntoIter;
+
 use anyhow::{Context, Ok};
 use tokenizer::Token;
-use std::{ iter::Peekable, vec::IntoIter };
-use crate::tokenizer;
 
-pub enum Statement { 
-    Select(SelectStatement)
+use crate::sql::tokenizer;
+
+pub enum Statement {
+    Select(SelectStatement),
 }
 
 pub struct SelectStatement {
-    pub from: String
+    pub from: String,
 }
 
 pub fn parse_sql(query: &str) -> anyhow::Result<Statement> {
@@ -19,12 +22,14 @@ pub fn parse_sql(query: &str) -> anyhow::Result<Statement> {
 }
 
 pub struct Parser {
-    tokens: Peekable<IntoIter<Token>>
+    tokens: Peekable<IntoIter<Token>>,
 }
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens: tokens.into_iter().peekable() }
+        Self {
+            tokens: tokens.into_iter().peekable(),
+        }
     }
 
     pub fn parse_statement(&mut self) -> anyhow::Result<Statement> {
@@ -49,8 +54,7 @@ impl Parser {
     }
 
     fn expect(&mut self, expected: Token) -> anyhow::Result<()> {
-        let next_token = self.tokens.next()
-            .context("unexpected end of input")?;
+        let next_token = self.tokens.next().context("unexpected end of input")?;
 
         if next_token != expected {
             anyhow::bail!("Expected token {:?}", expected);

@@ -1,20 +1,19 @@
-use anyhow::{ bail };
 use std::collections::VecDeque;
-use crate::{
-    page_reader::{ PageReader, read_varint },
-    page::{ Page, Cell },
-    ext::RecordFieldTypeExt};
+
+use anyhow::bail;
+
+use crate::core::page::{Cell, Page};
+use crate::core::page_reader::{PageReader, read_varint};
+use crate::ext::RecordFieldTypeExt;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Scanner<'a> {
-    page_reader: PageReader<'a>
+    page_reader: PageReader<'a>,
 }
 
 impl<'a> Scanner<'a> {
     pub fn new(page_reader: PageReader<'a>) -> Self {
-        Scanner {
-            page_reader
-        }
+        Scanner { page_reader }
     }
 
     pub fn scan(self, root_page: usize) -> anyhow::Result<RecordIter<'a>> {
@@ -25,7 +24,7 @@ impl<'a> Scanner<'a> {
             page_reader: self.page_reader,
             current_cell: 0,
             pages_to_visit,
-            current_page: None
+            current_page: None,
         })
     }
 }
@@ -46,7 +45,7 @@ impl<'a> Iterator for RecordIter<'a> {
                 if self.current_cell < page.get_cell_count() {
                     let cell = &page.cells[self.current_cell];
                     self.current_cell += 1;
-                    
+
                     match cell {
                         Cell::TableLeaf { payload } => return Some(parse_record(payload)),
                         Cell::TableInterior { left_child_page } => {
@@ -54,8 +53,7 @@ impl<'a> Iterator for RecordIter<'a> {
                             continue;
                         }
                     }
-                }
-                else {
+                } else {
                     if let Some(right_most) = page.header.right_most_pointer {
                         self.pages_to_visit.push_back(right_most as usize);
                     }
@@ -64,17 +62,18 @@ impl<'a> Iterator for RecordIter<'a> {
             }
 
             match self.pages_to_visit.pop_front() {
-                Some(page_num) => {
-                    match self.page_reader.read_page(page_num) {
-                        Ok(page) => {
-                            println!("--- reading page {} ttype: {:?}", page_num, page.header.page_type);
-                            self.current_page = Some(page);
-                            self.current_cell = 0;
-                        }
-                        Err(e) => return Some(Err(e))
+                Some(page_num) => match self.page_reader.read_page(page_num) {
+                    Ok(page) => {
+                        println!(
+                            "--- reading page {} ttype: {:?}",
+                            page_num, page.header.page_type
+                        );
+                        self.current_page = Some(page);
+                        self.current_cell = 0;
                     }
-                }
-                None => return None
+                    Err(e) => return Some(Err(e)),
+                },
+                None => return None,
             }
         }
     }
@@ -86,25 +85,35 @@ fn parse_record(payload: &[u8]) -> anyhow::Result<Record> {
     let record_fields = parse_record_fields(payload, header_size, pos)?;
 
     Ok(Record {
-        header: RecordHeader { fields: record_fields },
+        header: RecordHeader {
+            fields: record_fields,
+        },
         payload: payload.to_vec(),
     })
 }
 
-fn parse_record_fields(payload: &[u8], header_size: usize, mut pos: usize) -> anyhow::Result<Vec<RecordField>> {
+fn parse_record_fields(
+    payload: &[u8],
+    header_size: usize,
+    mut pos: usize,
+) -> anyhow::Result<Vec<RecordField>> {
     let mut offset = header_size;
     let mut record_fields = Vec::new();
 
     for _ in 0..header_size - 1 {
         let type_code = read_varint(payload, &mut pos);
         let (field_type, size) = get_field_type(type_code)?;
-        record_fields.push(RecordField { field_type, size, offset });
+        record_fields.push(RecordField {
+            field_type,
+            size,
+            offset,
+        });
         offset += size;
     }
     Ok(record_fields)
 }
 
-fn get_field_type(serial_type_code:u64) -> anyhow::Result<(RecordFieldType, usize)> {
+fn get_field_type(serial_type_code: u64) -> anyhow::Result<(RecordFieldType, usize)> {
     Ok(match serial_type_code {
         0 => (RecordFieldType::Null, 0),
         1 => (RecordFieldType::I8, 1),
@@ -130,7 +139,7 @@ fn get_field_type(serial_type_code:u64) -> anyhow::Result<(RecordFieldType, usiz
 
 pub struct Record {
     pub header: RecordHeader,
-    pub payload: Vec<u8>
+    pub payload: Vec<u8>,
 }
 
 impl Record {
@@ -139,7 +148,8 @@ impl Record {
             return Ok(None);
         };
 
-        let payload_slice = &self.payload[record_field.offset..record_field.offset + record_field.size];
+        let payload_slice =
+            &self.payload[record_field.offset..record_field.offset + record_field.size];
         Ok(record_field.field_type.decode(payload_slice)?)
     }
 
@@ -151,7 +161,7 @@ impl Record {
                     RecordValue::String(s) => s,
                     RecordValue::Int(i) => i.to_string(),
                     RecordValue::Float(i) => i.to_string(),
-                    _ => bail!("unsupported value type for to_string")
+                    _ => bail!("unsupported value type for to_string"),
                 };
                 field_values.push(value);
             }
@@ -161,13 +171,13 @@ impl Record {
 }
 
 pub struct RecordHeader {
-    pub fields: Vec<RecordField>
+    pub fields: Vec<RecordField>,
 }
 
 pub struct RecordField {
     pub field_type: RecordFieldType,
     pub size: usize,
-    pub offset: usize
+    pub offset: usize,
 }
 
 pub enum RecordValue {
@@ -175,21 +185,21 @@ pub enum RecordValue {
     String(String),
     Blob(Vec<u8>),
     Int(i64),
-    Float(f64)
+    Float(f64),
 }
 
 impl RecordValue {
     pub fn as_string(&self) -> Option<String> {
         match self {
             Self::String(s) => Some(s.clone()),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn as_int(&self) -> Option<i64> {
         match self {
             Self::Int(i) => Some(*i),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -208,5 +218,5 @@ pub enum RecordFieldType {
     Zero,
     One,
     String(usize),
-    Blob(usize)
+    Blob(usize),
 }

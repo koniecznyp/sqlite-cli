@@ -1,12 +1,9 @@
-use std::{
-    io::{ Read, Seek, SeekFrom },
-    fs::File
-};
+use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
 
-use crate::{
-    database::{ self, DatabaseHeader },
-    page::{ Page, PageType, PageHeader, Cell },
-    ext::ByteSliceExt};
+use crate::core::database::{self, DatabaseHeader};
+use crate::core::page::{Cell, Page, PageHeader, PageType};
+use crate::ext::ByteSliceExt;
 
 pub const PAGE_CELLS_COUNT_OFFSET: usize = 3;
 pub const PAGE_TYPE_TABLE_LEAF: u8 = 13;
@@ -16,26 +13,26 @@ pub const PAGE_RIGHT_MOST_POINTER_OFFSET: usize = 8;
 #[derive(Debug, Clone, Copy)]
 pub struct PageReader<'a> {
     db_header: &'a DatabaseHeader,
-    file: &'a File
+    file: &'a File,
 }
 
 impl<'a> PageReader<'a> {
     pub fn new(db_header: &'a DatabaseHeader, file: &'a File) -> Self {
-        Self {
-            db_header,
-            file,
-        }
+        Self { db_header, file }
     }
 
     pub fn read_page(&self, page_num: usize) -> anyhow::Result<Page> {
         let data = self.read_file_content(page_num)?;
-        let offset = if page_num == 1 { database::HEADER_SIZE } else { 0 };
+        let offset = if page_num == 1 {
+            database::HEADER_SIZE
+        } else {
+            0
+        };
         let content_offset = &data[offset..];
-        
-        let header = Self::parse_page_header(&content_offset)?; 
-        let cell_pointers = Self::get_cell_pointers(
-            &data[offset + header.size..],
-            header.cell_count)?;
+
+        let header = Self::parse_page_header(&content_offset)?;
+        let cell_pointers =
+            Self::get_cell_pointers(&data[offset + header.size..], header.cell_count)?;
         let cells = Self::get_cells(&data, cell_pointers, &header.page_type)?;
 
         Ok(Page { header, cells })
@@ -43,11 +40,11 @@ impl<'a> PageReader<'a> {
 
     fn read_file_content(&self, page_num: usize) -> anyhow::Result<Vec<u8>> {
         let offset = page_num.saturating_sub(1) * self.db_header.page_size as usize;
-        let mut file = self.file; 
+        let mut file = self.file;
         file.seek(SeekFrom::Start(offset as u64))?;
         let mut buffer = vec![0; self.db_header.page_size as usize];
         file.read_exact(&mut buffer)?;
-        
+
         Ok(buffer)
     }
 
@@ -56,13 +53,18 @@ impl<'a> PageReader<'a> {
         let cell_count = buffer.read_u16_be(PAGE_CELLS_COUNT_OFFSET);
         let right_most_pointer = Self::get_right_most_ptr(&buffer, &page_type);
 
-        Ok(PageHeader { page_type, size: page_size, cell_count, right_most_pointer})
+        Ok(PageHeader {
+            page_type,
+            size: page_size,
+            cell_count,
+            right_most_pointer,
+        })
     }
 
     fn get_right_most_ptr(buffer: &[u8], page_type: &PageType) -> Option<u32> {
         match page_type {
             PageType::TableInterior => Some(buffer.read_u32_be(PAGE_RIGHT_MOST_POINTER_OFFSET)),
-            _ => None
+            _ => None,
         }
     }
 
@@ -70,7 +72,7 @@ impl<'a> PageReader<'a> {
         Ok(match buffer[0] {
             PAGE_TYPE_TABLE_LEAF => (PageType::TableLeaf, 8),
             PAGE_TYPE_TABLE_INTERIOR => (PageType::TableInterior, 12),
-            _ => anyhow::bail!("unknown page type")
+            _ => anyhow::bail!("unknown page type"),
         })
     }
 
@@ -83,7 +85,11 @@ impl<'a> PageReader<'a> {
         Ok(cell_pointers)
     }
 
-    fn get_cells(data: &[u8], cell_pointers: Vec<u16>, page_type: &PageType) -> anyhow::Result<Vec<Cell>> {
+    fn get_cells(
+        data: &[u8],
+        cell_pointers: Vec<u16>,
+        page_type: &PageType,
+    ) -> anyhow::Result<Vec<Cell>> {
         let mut cells = Vec::new();
         for cell_pointer in cell_pointers {
             let mut pos = cell_pointer as usize;
@@ -91,11 +97,11 @@ impl<'a> PageReader<'a> {
                 PageType::TableLeaf => {
                     let payload_size = read_varint(&data, &mut pos);
                     let _rowid = read_varint(&data, &mut pos);
-                    
-                    cells.push(Cell::TableLeaf { 
-                        payload: data[pos..pos + payload_size as usize].to_vec() 
+
+                    cells.push(Cell::TableLeaf {
+                        payload: data[pos..pos + payload_size as usize].to_vec(),
                     });
-                },
+                }
                 PageType::TableInterior => {
                     let left_child_page = data.read_u32_be(pos);
                     cells.push(Cell::TableInterior { left_child_page });
@@ -119,19 +125,20 @@ pub fn read_varint(data: &[u8], pos: &mut usize) -> u64 {
         *pos += 1;
 
         value |= ((byte & 0x7F) as u64) << shift;
-   
+
         if byte & 0x80 == 0 {
             return value;
         }
-  
+
         shift += 7;
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use test_case::test_case;
+
+    use super::*;
 
     #[test_case(&[0x00], 0)]
     #[test_case(&[0x01], 1)]
@@ -154,7 +161,10 @@ mod tests {
 
         assert_eq!(
             cells,
-            vec![Cell::TableLeaf { payload: vec![0x03, 0x04, 0x05] }]);
+            vec![Cell::TableLeaf {
+                payload: vec![0x03, 0x04, 0x05]
+            }]
+        );
     }
 
     #[test]
@@ -166,6 +176,9 @@ mod tests {
 
         assert_eq!(
             cells,
-            vec![Cell::TableInterior { left_child_page: 17u32 } ]);
+            vec![Cell::TableInterior {
+                left_child_page: 17u32
+            }]
+        );
     }
 }

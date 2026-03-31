@@ -1,21 +1,16 @@
-use std::{io::{ Write, stdin, stdout}};
-use anyhow::{Ok};
+use std::io::{Write, stdin, stdout};
 
-use crate::database::Database;
+use anyhow::Ok;
 
+use crate::core::database::Database;
+use crate::sql::{executor, parser, planner};
+
+mod core;
 mod ext;
-mod database;
-mod page_reader;
-mod page;
-mod scanner;
-mod parser;
-mod tokenizer;
-mod planner;
-mod query_plan;
-mod executor;
+mod sql;
 
 fn main() -> anyhow::Result<()> {
-    let database = database::Database::load_file("test.db")?;
+    let database = Database::load_file("test.db")?;
     cli(database)
 }
 
@@ -29,7 +24,7 @@ fn cli(database: Database) -> anyhow::Result<()> {
             ".exit" => break,
             ".dbinfo" => show_dbinfo(&database)?,
             ".tables" => list_tables(&database)?,
-            query => process_query(&database, query)?
+            query => process_query(&database, query)?,
         }
 
         flush_console();
@@ -46,14 +41,15 @@ fn show_dbinfo(database: &Database) -> anyhow::Result<()> {
          database page count:\t{}\n\
          software version:\t{}\n\
          ...other metadata",
-        database.header.page_size,
-        database.header.page_count,
-        database.header.version);
+        database.header.page_size, database.header.page_count, database.header.version
+    );
     Ok(())
 }
 
 fn list_tables(database: &Database) -> anyhow::Result<()> {
-    let mut tables = database.tables.iter()
+    let mut tables = database
+        .tables
+        .iter()
         .map(|t| t.name.as_str())
         .collect::<Vec<_>>();
     tables.sort();

@@ -1,8 +1,8 @@
-use crate::{scanner::Scanner };
+use crate::core::scanner::Scanner;
 
 #[derive(Debug)]
 pub struct QueryPlan<'a> {
-    pub root: PlanNode<'a>
+    pub root: PlanNode<'a>,
 }
 
 impl<'a> QueryPlan<'a> {
@@ -12,11 +12,11 @@ impl<'a> QueryPlan<'a> {
 }
 #[derive(Debug)]
 pub enum PlanNode<'a> {
-    SeqScan(SeqScanNode<'a>)
+    SeqScan(SeqScanNode<'a>),
 }
 
 #[derive(Debug)]
 pub struct SeqScanNode<'a> {
     pub scanner: Scanner<'a>,
-    pub rootpage: usize
+    pub rootpage: usize,
 }
