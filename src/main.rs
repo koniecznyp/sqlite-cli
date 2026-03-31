@@ -3,6 +3,7 @@ use anyhow::{Ok};
 
 use crate::database::Database;
 
+mod ext;
 mod database;
 mod page_reader;
 mod page;

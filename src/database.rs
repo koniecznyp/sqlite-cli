@@ -3,7 +3,8 @@ use anyhow::Context;
 
 use crate::{
     page_reader::PageReader,
-    scanner::{ Record, Scanner }};
+    scanner::{ Record, Scanner },
+    ext::ByteSliceExt};
 
 pub const HEADER_SIZE: usize = 100;
 pub const HEADER_PAGE_SIZE_OFFSET: usize = 16;
@@ -61,14 +62,9 @@ impl Database {
     }
 
     fn parse_header(bytes: &[u8]) -> anyhow::Result<DatabaseHeader> {
-        let page_size = u16::from_be_bytes(
-            bytes[HEADER_PAGE_SIZE_OFFSET..HEADER_PAGE_SIZE_OFFSET + 2].try_into().unwrap());
-
-        let page_count = u32::from_be_bytes(
-            bytes[HEADER_PAGE_COUNT_OFFSET..HEADER_PAGE_COUNT_OFFSET + 4].try_into().unwrap());
-
-        let version = u32::from_be_bytes(
-            bytes[HEADER_VERSION_OFFSET..HEADER_VERSION_OFFSET + 4].try_into().unwrap());
+        let page_size = bytes.read_u16_be(HEADER_PAGE_SIZE_OFFSET);
+        let page_count = bytes.read_u32_be(HEADER_PAGE_COUNT_OFFSET);
+        let version = bytes.read_u32_be(HEADER_VERSION_OFFSET);
 
         Ok(DatabaseHeader { page_size, page_count, version })
     }

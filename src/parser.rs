@@ -1,8 +1,7 @@
-use crate::tokenizer;
-
 use anyhow::{Context, Ok};
 use tokenizer::Token;
 use std::{ iter::Peekable, vec::IntoIter };
+use crate::tokenizer;
 
 pub enum Statement { 
     Select(SelectStatement)

@@ -1,10 +1,12 @@
-use std::io::{ Read, Seek, SeekFrom };
-use std::fs::File;
+use std::{
+    io::{ Read, Seek, SeekFrom },
+    fs::File
+};
 
-use crate::page::PageType;
 use crate::{
     database::{ self, DatabaseHeader },
-    page::{ Page, PageHeader, Cell }};
+    page::{ Page, PageType, PageHeader, Cell },
+    ext::ByteSliceExt};
 
 pub const PAGE_CELLS_COUNT_OFFSET: usize = 3;
 pub const PAGE_TYPE_TABLE_LEAF: u8 = 13;
@@ -41,11 +43,8 @@ impl<'a> PageReader<'a> {
 
     fn read_file_content(&self, page_num: usize) -> anyhow::Result<Vec<u8>> {
         let offset = page_num.saturating_sub(1) * self.db_header.page_size as usize;
-
         let mut file = self.file; 
-
         file.seek(SeekFrom::Start(offset as u64))?;
-
         let mut buffer = vec![0; self.db_header.page_size as usize];
         file.read_exact(&mut buffer)?;
         
@@ -54,20 +53,17 @@ impl<'a> PageReader<'a> {
 
     fn parse_page_header(buffer: &[u8]) -> anyhow::Result<PageHeader> {
         let (page_type, page_size) = Self::parse_page_type(&buffer)?;
-        let cell_count = u16::from_be_bytes(
-            buffer[PAGE_CELLS_COUNT_OFFSET..PAGE_CELLS_COUNT_OFFSET + 2]
-            .try_into()
-            .unwrap());
-
-        let right_most_pointer = match page_type {
-            PageType::TableInterior => Some(u32::from_be_bytes(
-                buffer[PAGE_RIGHT_MOST_POINTER_OFFSET..PAGE_RIGHT_MOST_POINTER_OFFSET + 4]
-                    .try_into()
-                    .unwrap())),
-            _ => None
-        };
+        let cell_count = buffer.read_u16_be(PAGE_CELLS_COUNT_OFFSET);
+        let right_most_pointer = Self::get_right_most_ptr(&buffer, &page_type);
 
         Ok(PageHeader { page_type, size: page_size, cell_count, right_most_pointer})
+    }
+
+    fn get_right_most_ptr(buffer: &[u8], page_type: &PageType) -> Option<u32> {
+        match page_type {
+            PageType::TableInterior => Some(buffer.read_u32_be(PAGE_RIGHT_MOST_POINTER_OFFSET)),
+            _ => None
+        }
     }
 
     fn parse_page_type(buffer: &[u8]) -> anyhow::Result<(PageType, usize)> {
@@ -82,10 +78,7 @@ impl<'a> PageReader<'a> {
         let mut cell_pointers = Vec::new();
         for i in 0..cell_count {
             let offset = (i * 2) as usize;
-            cell_pointers.push(u16::from_be_bytes(
-                buffer[offset..offset + 2]
-                .try_into()
-                .unwrap()));
+            cell_pointers.push(buffer.read_u16_be(offset));
         }
         Ok(cell_pointers)
     }
@@ -104,9 +97,7 @@ impl<'a> PageReader<'a> {
                     });
                 },
                 PageType::TableInterior => {
-                    let left_child_page = u32::from_be_bytes(
-                        data[pos..pos + 4].try_into().unwrap()
-                    );
+                    let left_child_page = data.read_u32_be(pos);
                     cells.push(Cell::TableInterior { left_child_page });
                 }
             }

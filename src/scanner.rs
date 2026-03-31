@@ -1,7 +1,9 @@
-use anyhow::{ Context, bail };
+use anyhow::{ bail };
 use std::collections::VecDeque;
-use crate::page_reader::{ PageReader, read_varint };
-use crate::page::{Page, Cell};
+use crate::{
+    page_reader::{ PageReader, read_varint },
+    page::{ Page, Cell },
+    ext::RecordFieldTypeExt};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Scanner<'a> {
@@ -81,21 +83,25 @@ impl<'a> Iterator for RecordIter<'a> {
 fn parse_record(payload: &[u8]) -> anyhow::Result<Record> {
     let mut pos = 0;
     let header_size = read_varint(payload, &mut pos) as usize;
+    let record_fields = parse_record_fields(payload, header_size, pos)?;
 
+    Ok(Record {
+        header: RecordHeader { fields: record_fields },
+        payload: payload.to_vec(),
+    })
+}
+
+fn parse_record_fields(payload: &[u8], header_size: usize, mut pos: usize) -> anyhow::Result<Vec<RecordField>> {
     let mut offset = header_size;
     let mut record_fields = Vec::new();
-    
+
     for _ in 0..header_size - 1 {
         let type_code = read_varint(payload, &mut pos);
         let (field_type, size) = get_field_type(type_code)?;
         record_fields.push(RecordField { field_type, size, offset });
         offset += size;
     }
-
-    Ok(Record {
-        header: RecordHeader { fields: record_fields },
-        payload: payload.to_vec(),
-    })
+    Ok(record_fields)
 }
 
 fn get_field_type(serial_type_code:u64) -> anyhow::Result<(RecordFieldType, usize)> {
@@ -133,46 +139,8 @@ impl Record {
             return Ok(None);
         };
 
-        match record_field.field_type {
-            RecordFieldType::Null => Ok(Some(RecordValue::Null)),
-            RecordFieldType::String(_) => {
-                let s = std::str::from_utf8(
-                    &self.payload[record_field.offset..record_field.offset + record_field.size])?;
-                Ok(Some(RecordValue::String(s.to_string())))
-            }
-            RecordFieldType::Blob(_) => {
-                let blob = self.payload[record_field.offset..record_field.offset + record_field.size].to_vec();
-                Ok(Some(RecordValue::Blob(blob)))
-            }
-            RecordFieldType::I64 => {
-                let bytes = &self.payload[record_field.offset..record_field.offset + record_field.size];
-                let val = i64::from_be_bytes(bytes.try_into().context("Invalid i64 bytes")?);
-                Ok(Some(RecordValue::Int(val)))
-            }
-            RecordFieldType::Float => {
-                let bytes = &self.payload[record_field.offset..record_field.offset + record_field.size];
-                let val = f64::from_be_bytes(bytes.try_into().context("Invalid f64 bytes")?);
-                Ok(Some(RecordValue::Float(val)))
-            }
-            RecordFieldType::I32 => {
-                let bytes = &self.payload[record_field.offset..record_field.offset + record_field.size];
-                let val = i32::from_be_bytes(bytes.try_into().context("Invalid i32 bytes")?);
-                Ok(Some(RecordValue::Int(val as i64)))
-            }
-            RecordFieldType::I16 => {
-                let bytes = &self.payload[record_field.offset..record_field.offset + record_field.size];
-                let val = i16::from_be_bytes(bytes.try_into().context("Invalid i16 bytes")?);
-                Ok(Some(RecordValue::Int(val as i64)))
-            }
-            RecordFieldType::I8 => {
-                let bytes = &self.payload[record_field.offset..record_field.offset + record_field.size];
-                let val = i8::from_be_bytes(bytes.try_into().context("Invalid i8 bytes")?);
-                Ok(Some(RecordValue::Int(val as i64)))
-            }
-            RecordFieldType::Zero => Ok(Some(RecordValue::Int(0))),
-            RecordFieldType::One => Ok(Some(RecordValue::Int(1))),
-            _ => anyhow::bail!("Unsupported field type: {:?}", record_field.field_type),
-        }
+        let payload_slice = &self.payload[record_field.offset..record_field.offset + record_field.size];
+        Ok(record_field.field_type.decode(payload_slice)?)
     }
 
     pub fn to_string(&self) -> anyhow::Result<String> {

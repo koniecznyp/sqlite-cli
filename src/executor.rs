@@ -1,7 +1,6 @@
-use crate::query_plan::QueryPlan;
-use crate::query_plan::PlanNode;
-use crate::scanner::RecordIter;
-use crate::scanner::Record;
+use crate::{
+    query_plan::{ QueryPlan, PlanNode },
+    scanner::{ RecordIter, Record }};
 
 pub struct Executor<'a> {
     rows_iter: RecordIter<'a>
