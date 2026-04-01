@@ -46,7 +46,7 @@ impl Parser {
         self.expect(Token::Star)?;
         self.expect(Token::From)?;
 
-        if let Some(Token::Table(name)) = self.tokens.next() {
+        if let Some(Token::Identifier(name)) = self.tokens.next() {
             Ok(SelectStatement { from: name })
         } else {
             anyhow::bail!("expected table name")
