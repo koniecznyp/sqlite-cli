@@ -10,6 +10,12 @@ pub enum Token {
     Eq,
     Number(String),
     Identifier(String),
+    Create,
+    Table,
+    LeftParen,
+    RightParen,
+    Comma,
+    Type(String),
 }
 
 pub fn tokenize(query: &str) -> Vec<Token> {
@@ -22,6 +28,9 @@ pub fn tokenize(query: &str) -> Vec<Token> {
             char if char.is_whitespace() => continue,
             '*' => tokens.push(Token::Star),
             '=' => tokens.push(Token::Eq),
+            '(' => tokens.push(Token::LeftParen),
+            ')' => tokens.push(Token::RightParen),
+            ',' => tokens.push(Token::Comma),
             char if char.is_ascii_digit() => {
                 tokens.push(parse_number_token(char, &mut chars));
             }
@@ -32,7 +41,10 @@ pub fn tokenize(query: &str) -> Vec<Token> {
                     "select" => tokens.push(Token::Select),
                     "from" => tokens.push(Token::From),
                     "where" => tokens.push(Token::Where),
-                    _ => tokens.push(Token::Identifier(keyword.to_lowercase())),
+                    "create" => tokens.push(Token::Create),
+                    "table" => tokens.push(Token::Table),
+                    k if is_type_name(k) => tokens.push(Token::Type(keyword)),
+                    _ => tokens.push(Token::Identifier(keyword)),
                 }
             }
             _ => {}
@@ -55,6 +67,13 @@ fn parse_keyword_token(char: char, chars: &mut Peekable<Chars>) -> String {
         keyword.push(w);
     }
     keyword
+}
+
+fn is_type_name(keyword: &str) -> bool {
+    match keyword {
+        "integer" | "text" => true,
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -116,7 +135,7 @@ mod tests {
 
     #[test]
     fn test_where_with_number() {
-        let input = "select * from table where id = 5";
+        let input = "select * from cars where id = 5";
         let result = tokenize(input);
 
         assert_eq!(
@@ -125,11 +144,33 @@ mod tests {
                 Token::Select,
                 Token::Star,
                 Token::From,
-                Token::Identifier("table".to_string()),
+                Token::Identifier("cars".to_string()),
                 Token::Where,
                 Token::Identifier("id".to_string()),
                 Token::Eq,
                 Token::Number("5".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_create_table() {
+        let input = "CREATE TABLE cars(id integer, name text);";
+        let result = tokenize(input);
+
+        assert_eq!(
+            result,
+            vec![
+                Token::Create,
+                Token::Table,
+                Token::Identifier("cars".to_string()),
+                Token::LeftParen,
+                Token::Identifier("id".to_string()),
+                Token::Type("integer".to_string()),
+                Token::Comma,
+                Token::Identifier("name".to_string()),
+                Token::Type("text".to_string()),
+                Token::RightParen
             ]
         );
     }
