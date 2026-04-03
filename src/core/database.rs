@@ -6,6 +6,8 @@ use anyhow::Context;
 use crate::core::page_reader::PageReader;
 use crate::core::scanner::{Record, Scanner};
 use crate::ext::ByteSliceExt;
+use crate::parser::{ColumnDefinition, Parser};
+use crate::sql::tokenizer;
 
 pub const HEADER_SIZE: usize = 100;
 pub const HEADER_PAGE_SIZE_OFFSET: usize = 16;
@@ -80,6 +82,7 @@ impl Database {
 pub struct Table {
     pub name: String,
     pub rootpage: usize,
+    pub columns: Vec<ColumnDefinition>,
 }
 
 impl Table {
@@ -106,9 +109,25 @@ impl Table {
             .as_int()
             .context("rootpage must be an integer")? as usize;
 
+        let create_statement = record
+            .field(4)?
+            .context("sql")?
+            .as_string()
+            .context("sql must be a string")?;
+
+        let columns = Self::parse_table_definition(&create_statement)?;
+
         Ok(Some(Table {
             name: tbl_name,
             rootpage: rootpage,
+            columns,
         }))
+    }
+
+    fn parse_table_definition(create_statement: &str) -> anyhow::Result<Vec<ColumnDefinition>> {
+        let tokens = tokenizer::tokenize(create_statement);
+        let mut parser = Parser::new(tokens);
+        let statement = parser.parse_create_table_statement()?;
+        Ok(statement.columns)
     }
 }

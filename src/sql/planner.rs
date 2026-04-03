@@ -16,6 +16,7 @@ impl<'a> Planner<'a> {
     pub fn compile(&self, statement: &Statement) -> anyhow::Result<QueryPlan<'a>> {
         match statement {
             Statement::Select(select_statement) => self.compile_select(select_statement),
+            _ => anyhow::bail!("not supported statement"),
         }
     }
 
