@@ -64,10 +64,10 @@ impl<'a> Iterator for RecordIter<'a> {
             match self.pages_to_visit.pop_front() {
                 Some(page_num) => match self.page_reader.read_page(page_num) {
                     Ok(page) => {
-                        println!(
+                        /*println!(
                             "--- reading page {} ttype: {:?}",
                             page_num, page.header.page_type
-                        );
+                        ); */
                         self.current_page = Some(page);
                         self.current_cell = 0;
                     }

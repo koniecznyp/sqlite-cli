@@ -38,7 +38,7 @@ impl<'a> Planner<'a> {
 
             query_filter = Some(QueryFilter {
                 column_index,
-                expected_value: condition.value.clone(),
+                value: condition.value.clone(),
             });
         }
 

@@ -22,8 +22,8 @@ pub struct SeqScanNode<'a> {
     pub filter: Option<QueryFilter>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct QueryFilter {
     pub column_index: usize,
-    pub expected_value: String,
+    pub value: String,
 }
