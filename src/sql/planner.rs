@@ -2,7 +2,7 @@ use anyhow::Ok;
 
 use crate::core::database::Database;
 use crate::sql::parser::{SelectStatement, Statement};
-use crate::sql::query_plan::{PlanNode, QueryPlan, SeqScanNode};
+use crate::sql::query_plan::{PlanNode, QueryFilter, QueryPlan, SeqScanNode};
 
 pub struct Planner<'a> {
     database: &'a Database,
@@ -28,9 +28,24 @@ impl<'a> Planner<'a> {
             .find(|t| t.name == select_statement.from)
             .ok_or_else(|| anyhow::anyhow!("table not exists"))?;
 
+        let mut query_filter = None;
+        if let Some(condition) = &select_statement.filter {
+            let column_index = table
+                .columns
+                .iter()
+                .position(|c| c.name == condition.key)
+                .unwrap(); // fix?
+
+            query_filter = Some(QueryFilter {
+                column_index,
+                expected_value: condition.value.clone(),
+            });
+        }
+
         Ok(QueryPlan::new(PlanNode::SeqScan(SeqScanNode {
             scanner: self.database.get_scanner(),
             rootpage: table.rootpage,
+            filter: query_filter,
         })))
     }
 }

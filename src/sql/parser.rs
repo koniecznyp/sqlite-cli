@@ -6,23 +6,35 @@ use tokenizer::Token;
 
 use crate::sql::tokenizer;
 
+#[derive(Debug, PartialEq)]
 pub enum Statement {
     Select(SelectStatement),
     CreateTable(CreateTableStatement),
 }
 
+#[derive(Debug, PartialEq)]
 pub struct SelectStatement {
     pub from: String,
+    pub filter: Option<Condition>,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct CreateTableStatement {
     pub table_name: String,
     pub columns: Vec<ColumnDefinition>,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct ColumnDefinition {
     pub name: String,
     pub data_type: String, // todo text, integer etc
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Condition {
+    pub key: String,
+    pub value: String,
+    pub op: String, // todo eq, gt, lt
 }
 
 pub fn parse_sql(query: &str) -> anyhow::Result<Statement> {
@@ -90,7 +102,24 @@ impl Parser {
         self.expect(Token::From)?;
         let table_name = self.expect_identifier()?;
 
-        Ok(SelectStatement { from: table_name })
+        let mut simple_condition = None;
+        if let Some(Token::Where) = self.tokens.peek() {
+            self.expect(Token::Where)?;
+            let key = self.expect_identifier()?;
+            self.expect(Token::Eq)?;
+            let value = self.expect_number()?;
+
+            simple_condition = Some(Condition {
+                key,
+                value,
+                op: String::from("="),
+            });
+        }
+
+        Ok(SelectStatement {
+            from: table_name,
+            filter: simple_condition,
+        })
     }
 
     fn expect(&mut self, expected: Token) -> anyhow::Result<()> {
@@ -119,11 +148,68 @@ impl Parser {
             _ => anyhow::bail!("expected type"),
         }
     }
+
+    fn expect_number(&mut self) -> anyhow::Result<String> {
+        let next_token = self.tokens.next().context("unexpected end of input")?;
+
+        match next_token {
+            Token::Number(value) => Ok(value),
+            _ => anyhow::bail!("expected number"),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_select_basic() {
+        let tokens = vec![
+            Token::Select,
+            Token::Star,
+            Token::From,
+            Token::Identifier("users".to_string()),
+        ];
+
+        let mut parser = Parser::new(tokens);
+        let result = parser.parse_statement().unwrap();
+
+        let expected = Statement::Select(SelectStatement {
+            from: String::from("users"),
+            filter: None,
+        });
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_select_with_where() {
+        let tokens = vec![
+            Token::Select,
+            Token::Star,
+            Token::From,
+            Token::Identifier("users".to_string()),
+            Token::Where,
+            Token::Identifier("id".to_string()),
+            Token::Eq,
+            Token::Number(String::from("20")),
+        ];
+
+        let mut parser = Parser::new(tokens);
+        let result = parser.parse_statement().unwrap();
+
+        let expected = Statement::Select(SelectStatement {
+            from: String::from("users"),
+            filter: Some(Condition {
+                key: String::from("id"),
+                value: String::from("20"),
+                op: String::from("="),
+            }),
+        });
+
+        assert_eq!(result, expected);
+    }
 
     #[test]
     fn test_parse_create_table() {

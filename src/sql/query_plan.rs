@@ -19,4 +19,11 @@ pub enum PlanNode<'a> {
 pub struct SeqScanNode<'a> {
     pub scanner: Scanner<'a>,
     pub rootpage: usize,
+    pub filter: Option<QueryFilter>,
+}
+
+#[derive(Debug)]
+pub struct QueryFilter {
+    pub column_index: usize,
+    pub expected_value: String,
 }
