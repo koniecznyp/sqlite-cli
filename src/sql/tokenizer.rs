@@ -183,7 +183,7 @@ mod tests {
     #[test_case("= 5", Operator::Eq)]
     #[test_case("!=5", Operator::Neq)]
     #[test_case("> 5", Operator::Gt)]
-    #[test_case("<.   5", Operator::Lt)]
+    #[test_case("<   5", Operator::Lt)]
     #[test_case(">= 5", Operator::Gte)]
     #[test_case("<= 5", Operator::Lte)]
     fn test_where_number(input: &str, op: Operator) {
