@@ -1,4 +1,5 @@
 use crate::core::scanner::Scanner;
+use crate::sql::parser::Operator;
 
 #[derive(Debug)]
 pub struct QueryPlan<'a> {
@@ -26,4 +27,5 @@ pub struct SeqScanNode<'a> {
 pub struct QueryFilter {
     pub column_index: usize,
     pub value: String,
+    pub op: Operator,
 }

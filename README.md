@@ -1,6 +1,6 @@
 # SQLite db reader cli
 
-This project is my `Rust` learning project focused on implementing a simple SQLite database file reader. The primary goal is to deepen understanding and play with the Rust language through hands-on experience with binary file parsing, data structures, and command-line interface development. The application reads SQLite database file and support queries like `select * from ..` and basic dot commands like `.tables` for displaying available tables or `.dbinfo` to see some metadata about db itself. (see more [sqlite cli](https://sqlite.org/cli.html) and [sqlite3 file format](https://sqlite.org/fileformat.html)).
+This is my first project in `Rust` learning project focused on implementing a simple SQLite database file reader. The primary goal is to deepen understanding and play with the Rust language through hands-on experience with binary file parsing, data structures, and command-line interface development. The application reads SQLite database file and support simple queries and basic dot commands like `.tables` for displaying available tables or `.dbinfo` to see some metadata about db itself. (see more [sqlite cli](https://sqlite.org/cli.html) and [sqlite3 file format](https://sqlite.org/fileformat.html)).
 
 ## SQLite3 File Structure
 
@@ -102,6 +102,21 @@ v
 [ scan complete: 1000 rows ]
 ```
 
+## Filtering
+
+Currently, select query support a single where condition for numbers (int) and text (text) with support for appropriate operators. The following table describes the supported operators:
+
+| Operator | Code (Enum) | SQL Syntax | Implementation Support |
+| :--- | :--- | :--- | :--- |
+| **Equal** | `Eq` | `=` | Supported for both Integers and Strings |
+| **Not Equal** | `Neq` | `!=` | Supported for both Integers and Strings |
+| **Less Than** | `Lt` | `<` | Supported for Integers only |
+| **Less or Equal** | `Lte` | `<=` | Supported for Integers only |
+| **Greater Than** | `Gt` | `>` | Supported for Integers only |
+| **Greater or Equal** | `Gte` | `>=` | Supported for Integers only |
+
+> **Note:** Attempting to use inequality operators (`Lt`, `Lte`, `Gt`, `Gte`) on string values will result in a error.
+
 ## How to Run
 
 1. Navigate to the project directory: `cd sqlite-cli`
@@ -123,6 +138,14 @@ numbers   books   cars
 db> select * from books
 1|lord of the rings
 2|hobbit
+db> select * from books where title = 'hobbit'
+2|hobbit
+db> select * from users where id = 325
+325|User_325|user325@example.com
+db> select * from users where id >= 998
+998|User_998|user998@example.com
+999|User_999|user999@example.com
+1000|User_1000|user1000@example.com
 db> .exit
 ```
 
@@ -146,11 +169,6 @@ db> .exit
 
 ## Future ideas
 - ✅ handle multipaging
+- ✅ introduce simple filter predicate(s) using `where`
 - improve select statement to specify direct columns instead of only `select *`
-- introduce simple filter predicate(s) using `where`
 - introduce other types of dot commands (see https://sqlite.org/cli.html)
-- handle other types of statements like `insert`
-
-## Want to contribute?
-
-Want to get your hands dirty with Rust? This project is a safe space to practice. Whether it's a small fix or a new module, your contributions are the best way to learn 💡

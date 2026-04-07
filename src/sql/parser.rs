@@ -27,14 +27,31 @@ pub struct CreateTableStatement {
 #[derive(Debug, PartialEq)]
 pub struct ColumnDefinition {
     pub name: String,
-    pub data_type: String, // todo text, integer etc
+    pub data_type: ColumnType,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum ColumnType {
+    Integer,
+    Text,
+    Float,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Condition {
     pub key: String,
     pub value: String,
-    pub op: String, // todo eq, gt, lt
+    pub op: Operator,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub enum Operator {
+    Eq,
+    Neq,
+    Lt,
+    Lte,
+    Gt,
+    Gte,
 }
 
 pub fn parse_sql(query: &str) -> anyhow::Result<Statement> {
@@ -106,14 +123,10 @@ impl Parser {
         if let Some(Token::Where) = self.tokens.peek() {
             self.expect(Token::Where)?;
             let key = self.expect_identifier()?;
-            self.expect(Token::Eq)?;
-            let value = self.expect_number()?;
+            let op = self.expect_operator()?;
+            let value = self.expect_value()?;
 
-            simple_condition = Some(Condition {
-                key,
-                value,
-                op: String::from("="),
-            });
+            simple_condition = Some(Condition { key, value, op });
         }
 
         Ok(SelectStatement {
@@ -140,21 +153,31 @@ impl Parser {
         }
     }
 
-    fn expect_type(&mut self) -> anyhow::Result<String> {
+    fn expect_operator(&mut self) -> anyhow::Result<Operator> {
         let next_token = self.tokens.next().context("unexpected end of input")?;
 
         match next_token {
-            Token::Type(name) => Ok(name),
+            Token::Operator(op) => Ok(op),
+            _ => anyhow::bail!("expected operator"),
+        }
+    }
+
+    fn expect_type(&mut self) -> anyhow::Result<ColumnType> {
+        let next_token = self.tokens.next().context("unexpected end of input")?;
+
+        match next_token {
+            Token::Type(ColumnType::Integer) => Ok(ColumnType::Integer),
+            Token::Type(ColumnType::Text) => Ok(ColumnType::Text),
             _ => anyhow::bail!("expected type"),
         }
     }
 
-    fn expect_number(&mut self) -> anyhow::Result<String> {
+    fn expect_value(&mut self) -> anyhow::Result<String> {
         let next_token = self.tokens.next().context("unexpected end of input")?;
 
         match next_token {
-            Token::Number(value) => Ok(value),
-            _ => anyhow::bail!("expected number"),
+            Token::Literal(value) => Ok(value),
+            _ => anyhow::bail!("expected value"),
         }
     }
 }
@@ -192,8 +215,8 @@ mod tests {
             Token::Identifier("users".to_string()),
             Token::Where,
             Token::Identifier("id".to_string()),
-            Token::Eq,
-            Token::Number(String::from("20")),
+            Token::Operator(Operator::Eq),
+            Token::Literal(String::from("20")),
         ];
 
         let mut parser = Parser::new(tokens);
@@ -204,7 +227,7 @@ mod tests {
             filter: Some(Condition {
                 key: String::from("id"),
                 value: String::from("20"),
-                op: String::from("="),
+                op: Operator::Eq,
             }),
         });
 
@@ -219,10 +242,10 @@ mod tests {
             Token::Identifier("users".to_string()),
             Token::LeftParen,
             Token::Identifier("id".to_string()),
-            Token::Type("integer".to_string()),
+            Token::Type(ColumnType::Integer),
             Token::Comma,
             Token::Identifier("name".to_string()),
-            Token::Type("text".to_string()),
+            Token::Type(ColumnType::Text),
             Token::RightParen,
         ];
 
@@ -232,8 +255,8 @@ mod tests {
         assert_eq!(result.table_name, "users");
         assert_eq!(result.columns.len(), 2);
         assert_eq!(result.columns[0].name, "id");
-        assert_eq!(result.columns[0].data_type, "integer");
+        assert_eq!(result.columns[0].data_type, ColumnType::Integer);
         assert_eq!(result.columns[1].name, "name");
-        assert_eq!(result.columns[1].data_type, "text");
+        assert_eq!(result.columns[1].data_type, ColumnType::Text);
     }
 }
